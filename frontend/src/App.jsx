@@ -11,7 +11,8 @@ import EditBook from "./pages/AdminDashboard/EditBook";
 import CustomerDashboard from './pages/CustomerDashboard/CustomerDashboard';
 import AuthorDetails from './components/AuthorsList/AuthorDetails';
 import Navbar from './components/Navbar/Navbar';
-import Cart from './pages/CustomerDashboard/Cart';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
 
 function App() {
   return (
@@ -19,7 +20,6 @@ function App() {
       
       <Navbar />
       <Routes>
-      <Route path="/CustomerDashboard/cart" element={<Cart />} />
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignUpPage />} />
@@ -29,7 +29,7 @@ function App() {
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/books" element={<BookList />} />
         <Route path="/authors" element={<AuthorsList />} />
-        <Route path="/authors/:id" element={<AuthorDetails/>} />
+        <Route path="/authors/:authorId" element={<AuthorDetails />} />
       </Routes>
     </>
   );

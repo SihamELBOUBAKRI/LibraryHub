@@ -1,6 +1,8 @@
 /* CustomerDashboard.css */
 .dashboard-container{
-  margin-left: 100px;
+  padding: 0;
+  margin: 0;
+  width: 93%;
 }
 /* Overall Layout */
 .customer-dashboard-container {
@@ -150,3 +152,143 @@
 
 }
 
+
+
+
+/* Offcanvas Styling */
+.offcanvas {
+  background-color: #ece7d5; /* Soft beige background */
+  color: #333; /* Dark text for readability */
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease-in-out;
+  padding: 20px;
+}
+
+.offcanvas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #af002d; /* Rich red border */
+  padding-bottom: 10px;
+}
+
+.offcanvas-title {
+  font-size: 1.7rem;
+  font-weight: bold;
+  color: #af002d; /* Use the rich red color */
+}
+
+.offcanvas-body {
+  padding: 20px;
+}
+
+.cart-items-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #fafafa; /* Light gray background */
+  border-radius: 8px;
+  transition: transform 0.3s ease;
+}
+
+.cart-item:hover {
+  transform: translateX(5px);
+  background-color: #f1f1f1; /* Slightly darker gray on hover */
+}
+
+.cart-item span {
+  font-size: 1rem;
+}
+
+.cart-item button {
+  background-color: #af002d; /* Rich red button */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.cart-item button:hover {
+  background-color: #9a0027; /* Slightly darker red on hover */
+  transform: scale(1.05);
+}
+
+.cart-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333; /* Dark text */
+}
+
+.checkout-button {
+  width: 100%;
+  background-color: #af002d; /* Rich red background */
+  padding: 12px;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.checkout-button:hover {
+  background-color: #9a0027; /* Slightly darker red */
+  transform: scale(1.05);
+}
+
+.offcanvas-backdrop {
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
+}
+
+@media (max-width: 768px) {
+  .offcanvas {
+    width: 100%;
+    padding: 15px;
+  }
+
+  .cart-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cart-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .checkout-button {
+    margin-top: 20px;
+  }
+}
+/* Add this to your CSS file (e.g., CustomerDashboard.css) */
+.remove-icon {
+  color: #dc3545; /* Red color */
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: color 0.3s ease;
+}
+
+.remove-icon:hover {
+  color: #c82333; /* Darker red on hover */
+}
+
+.remove-icon:disabled {
+  color: #6c757d; /* Gray when disabled */
+  cursor: not-allowed;
+}

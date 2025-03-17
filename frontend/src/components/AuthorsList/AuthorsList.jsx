@@ -36,7 +36,7 @@ const AuthorsList = () => {
                 <Card className="shadow-sm">
                   <Card.Img
                     variant="top"
-                    src={author.image ? `http://127.0.0.1:8000/storage/AuthorImages/${author.image}` : 'https://via.placeholder.com/150'}
+                    src={`http://127.0.0.1:8000/storage/AuthorImages/${author.image}`}
                     alt={author.name}
                     className="author-image"
                   />

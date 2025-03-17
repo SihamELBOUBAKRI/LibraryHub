@@ -1,76 +1,178 @@
-/* AuthorDetails.css */
 
-/* Styling for the container */
-.author-details-container {
-    margin-top: 30px;
-    padding: 0 15px;
+.author-details {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  border-radius: 15px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  margin-left: 10px;
+}
+
+.author-info {
+  background-color: #ffffff;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+  margin-bottom: 40px;
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  transition: all 0.3s ease;
+}
+
+.author-info:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.15);
+}
+
+.author-info h2 {
+  font-size: 2.6rem;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.author-img {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.author-img:hover {
+  transform: scale(1.1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+}
+
+.author-info p {
+  font-size: 1.2rem;
+  line-height: 1.7;
+  color: #555;
+  text-align: justify;
+}
+
+/* Book List Section */
+.books-list {
+  background-color: #ffffff;
+  padding: 30px;
+  border-radius: 20px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
+}
+
+.books-list h3 {
+  font-size: 2.2rem;
+  margin-bottom: 20px;
+  color: #444;
+  text-align: center;
+  font-weight: 700;
+}
+
+.books-list ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+.books-list .book-item {
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  padding: 15px;
+  background-color: #fafafa;
+  border-radius: 10px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s ease;
+}
+
+.books-list .book-item:hover {
+  background-color: #f1f1f1;
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+}
+
+.books-list .book-item .book-image {
+  flex-shrink: 0;
+}
+
+.books-list .book-item .book-img {
+  width: 100px;
+  height: 150px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.books-list .book-item .book-info {
+  color: #333;
+}
+
+.books-list .book-item strong {
+  font-size: 1.2rem;
+}
+
+.books-list .book-item p {
+  color: #888;
+  font-size: 1rem;
+  margin-top: 5px;
+}
+
+/* Book Actions (Icons) */
+.book-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.cart-icon,
+.wishlist-icon {
+  font-size: 1.8rem;
+  color: #2575fc;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+}
+
+.cart-icon:hover,
+.wishlist-icon:hover {
+  transform: scale(1.2);
+  color: #6a11cb;
+}
+
+/* Add responsive styles for mobile */
+@media (max-width: 768px) {
+  .author-details {
+    padding: 20px;
   }
-  
-  .author-details-container h3 {
-    margin-top: 40px;
-    text-align: center;
-    font-size: 24px;
-    font-weight: 600;
+
+  .author-info {
+    padding: 20px;
+    flex-direction: column;
+    align-items: flex-start;
   }
-  
-  /* Card styling */
-  .author-details-container .mb-4 {
-    margin-bottom: 20px;
+
+  .author-info h2 {
+    font-size: 2rem;
   }
-  
-  .author-details-container .author-image {
-    max-height: 300px;
-    object-fit: cover;
-    margin-bottom: 15px;
+
+  .author-img {
+    width: 180px;
+    height: 180px;
   }
-  
-  .author-details-container .author-title {
-    font-size: 30px;
-    font-weight: 600;
-    text-align: center;
-    margin-bottom: 20px;
+
+  .books-list h3 {
+    font-size: 1.8rem;
   }
-  
-  .author-details-container .author-bio {
-    font-size: 16px;
-    line-height: 1.5;
-    color: #555;
-    text-align: center;
+
+  .books-list .book-item {
+    padding: 10px;
   }
-  
-  /* Books section */
-  .author-details-container .book-card .card-title {
-    font-size: 18px;
-    font-weight: 500;
+
+  .books-list .book-item .book-img {
+    width: 80px;
+    height: 120px;
   }
-  
-  .author-details-container .book-card .card-text {
-    font-size: 14px;
-    color: #777;
+
+  .books-list .book-item strong {
+    font-size: 1rem;
   }
-  
-  .author-details-container .book-card {
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    transition: box-shadow 0.3s ease;
-  }
-  
-  .author-details-container .book-card:hover {
-    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
-  }
-  
-  .author-details-container .spinner-container {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-  }
-  
-  /* Author image styling */
-  .author-details-container .author-image {
-    border-radius: 50%;
-    margin: 0 auto;
-    max-width: 150px;
-    display: block;
-    margin-bottom: 20px;
-  }
-  
+}

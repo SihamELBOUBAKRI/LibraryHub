@@ -2,31 +2,50 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../features/auth/authSlice';
+import { fetchCart, removeFromCart } from '../../features/cart/cartSlice';
+import { FaShoppingCart, FaSignOutAlt, FaHome, FaSearch, FaTrash, FaUser } from 'react-icons/fa';
+import { Button, Offcanvas, Form } from 'react-bootstrap'; // Bootstrap for offcanvas
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './CustomerDashboard.css';
-import { FaShoppingCart, FaSignOutAlt, FaHome, FaSearch } from 'react-icons/fa';
-
+import BookList from '../../components/Booklist/BookList';
 
 const CustomerDashboard = () => {
-  const [active, setActive] = useState('profile');
-  const cartItems = useSelector(state => state.cart.items);
-  const user = useSelector(state => state.auth.user);
+  const [showCart, setShowCart] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+    address: '',
+    password: ''
+  });
+  const cartItems = useSelector((state) => state.cart.items);
+  const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
-      // fetchCart will be handled in Cart component
+      dispatch(fetchCart(user.id));
+      setProfileData({
+        name: user.name,
+        email: user.email,
+        address: user.address || '',
+        password: ''
+      });
     }
-  }, [user]);
+  }, [dispatch, user]);
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
   };
 
-  if (!user) {
-    return <p>Loading user data...</p>;
-  }
+  const handleSaveProfile = () => {
+    toast.success('Profile updated successfully!');
+    setEditingProfile(false);
+  };
 
   return (
     <>
@@ -41,32 +60,48 @@ const CustomerDashboard = () => {
             </div>
           </div>
           <div className="navbar-actions">
-            <button className="navbar-action-button" onClick={() => navigate('/')}>
-              <FaHome />
-              <span>Home</span>
-            </button>
-            <button className="navbar-action-button" onClick={() => setActive('cart')}>
-              <FaShoppingCart />
-              <span>Cart ({cartItems.length})</span>
-            </button>
-            <button className="navbar-action-button" onClick={handleLogout}>
-              <FaSignOutAlt />
-              <span>Logout</span>
-            </button>
+            <button className="navbar-action-button" onClick={() => navigate('/')}> <FaHome /> <span>Home</span> </button>
+            <button className="navbar-action-button" onClick={() => setShowCart(true)}> <FaShoppingCart /> <span>Cart ({cartItems.length})</span> </button>
+            <button className="navbar-action-button" onClick={() => setShowProfile(true)}> <FaUser /> <span>Profile</span> </button>
           </div>
         </div>
-
-        {/* Profile Section */}
-        <div className={`dashboard-content-section ${active === 'profile' ? 'active' : ''}`} id="profile">
-          <h2>Welcome, {user.name}!</h2>
-          <p><strong>Email:</strong> {user.email}</p>
-          <p><strong>Role:</strong> {user.role}</p>
-          <p><strong>Member Status:</strong> {user.isamember ? 'Member' : 'Not a Member'}</p>
-          <p><strong>Address:</strong> {user.address || 'Not provided'}</p>
-          <p><strong>Phone:</strong> {user.tele || 'Not provided'}</p>
-        </div>
-
       </div>
+      {/* Profile Offcanvas */}
+      <Offcanvas show={showProfile} onHide={() => setShowProfile(false)} placement="end">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Your Profile</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          <Form>
+            <Form.Group controlId="formName">
+              <Form.Label>Name</Form.Label>
+              <Form.Control type="text" value={profileData.name} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })} />
+            </Form.Group>
+
+            <Form.Group controlId="formEmail">
+              <Form.Label>Email</Form.Label>
+              <Form.Control type="email" value={profileData.email} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, email: e.target.value })} />
+            </Form.Group>
+
+            <Form.Group controlId="formAddress">
+              <Form.Label>Address</Form.Label>
+              <Form.Control type="text" value={profileData.address} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, address: e.target.value })} />
+            </Form.Group>
+
+            {editingProfile && (
+              <Button variant="primary" className="mt-3" onClick={handleSaveProfile}>Save Profile</Button>
+            )}
+          </Form>
+
+          {!editingProfile && (
+            <Button variant="warning" className="mt-3" onClick={() => setEditingProfile(true)}>Edit Profile</Button>
+          )}
+
+          <Button variant="danger" className="mt-3" onClick={handleLogout}>Logout</Button>
+        </Offcanvas.Body>
+      </Offcanvas>
+
+      <ToastContainer position="top-right" autoClose={3000} />
     </>
   );
 };

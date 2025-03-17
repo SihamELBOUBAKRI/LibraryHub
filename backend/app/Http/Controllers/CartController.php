@@ -35,31 +35,42 @@ class CartController extends Controller
     // Add a book to a user's cart
     public function addToCart(Request $request, $userId)
 {
-    // Validate incoming data
     $validator = Validator::make($request->all(), [
-        'book_id' => 'required|exists:book_to_sell,id',  // Ensure the book exists in the `book_to_sell` table
-        'quantity' => 'required|integer|min:1',  // Ensure quantity is a positive integer
+        'book_id' => 'required|exists:book_to_sell,id',
     ]);
 
     if ($validator->fails()) {
         return response()->json(['errors' => $validator->errors()], 400);
     }
 
-    // Find or create the user's cart (make sure they only have one)
+    // Find or create the user's cart
     $cart = Cart::firstOrCreate(['user_id' => $userId]);
 
-    // Check if the book already exists in the cart, update it or create a new entry in `cart_items`
-    $cartItem = CartItem::updateOrCreate(
-        ['cart_id' => $cart->id, 'book_id' => $request->book_id],  // Find the existing item or create a new one
-        [
-            'quantity' => $request->quantity,  // Update quantity
-            'total_amount' => $request->quantity * BookToSell::find($request->book_id)->price,  // Calculate total amount
-        ]
-    );
+    // Find the existing cart item
+    $cartItem = CartItem::where('cart_id', $cart->id)
+        ->where('book_id', $request->book_id)
+        ->first();
 
-    // Return response with the added or updated item
+    if ($cartItem) {
+        // Increment the quantity by 1
+        $cartItem->quantity += 1;
+    } else {
+        // Add a new cart item with quantity 1
+        $cartItem = new CartItem([
+            'cart_id' => $cart->id,
+            'book_id' => $request->book_id,
+            'quantity' => 1,
+        ]);
+    }
+
+    // Update total amount
+    $cartItem->total_amount = $cartItem->quantity * BookToSell::find($request->book_id)->price;
+    $cartItem->save();
+
     return response()->json($cartItem, 201);
 }
+
+    
 
 
     // Get the cart for a specific user (with books included)
@@ -85,10 +96,19 @@ class CartController extends Controller
         return response()->json(['message' => 'Cart not found'], 404);
     }
 
-    // Find the specific cart item (book) and delete it
+    // Find the specific cart item (book)
     $cartItem = $cart->items()->where('book_id', $bookId)->first();
+
     if ($cartItem) {
-        $cartItem->delete();  // Delete the item from the cart
+        if ($cartItem->quantity > 1) {
+            // Decrease the quantity by 1
+            $cartItem->quantity -= 1;
+            $cartItem->total_amount = $cartItem->quantity * $cartItem->book->price;
+            $cartItem->save();
+        } else {
+            // If quantity is 1, remove the book from the cart
+            $cartItem->delete();
+        }
     }
 
     // Recalculate the total amount of the cart
@@ -96,11 +116,12 @@ class CartController extends Controller
 
     // Return the updated cart and total amount
     return response()->json([
-        'message' => 'Item removed from cart',
+        'message' => 'Item updated in cart',
         'items' => $cart->items,   // Updated list of cart items
         'totalAmount' => $totalAmount  // Updated total amount
     ], 200);
 }
+
 
     // Update a cart's contents (quantity or other fields)
     public function update(Request $request, $id)

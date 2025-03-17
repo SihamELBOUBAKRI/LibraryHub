@@ -42,9 +42,10 @@ const authorsSlice = createSlice({
       })
       .addCase(fetchAuthorDetails.fulfilled, (state, action) => {
         state.loading = false;
-        state.author = action.payload.author;
-        state.books = action.payload.books;
+        state.author = action.payload;
+        state.books = action.payload.books; 
       })
+          
       .addCase(fetchAuthorDetails.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;

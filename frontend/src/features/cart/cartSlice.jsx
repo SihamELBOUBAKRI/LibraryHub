@@ -23,34 +23,45 @@ export const fetchCart = createAsyncThunk(
 // Add to cart for a specific user
 export const addToCart = createAsyncThunk(
   'cart/addToCart',
-  async ({ userId, bookId, quantity }, { rejectWithValue }) => {
+  async ({ userId, bookId }, { rejectWithValue }) => {
     try {
-      // Posting book_id and quantity to the backend
-      const response = await axiosInstance.post(`/users/${userId}/cart`, { 
+      // Send only book_id, letting the backend handle quantity increment
+      const response = await axiosInstance.post(`/users/${userId}/cart`, {
         book_id: bookId,
-        quantity: quantity 
       });
 
-      return response.data; // Assuming this returns items and totalAmount
+      return response.data; // Return updated cart item
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
+
+
+
+
 
 
 // Remove from cart for a specific user
 export const removeFromCart = createAsyncThunk(
   'cart/removeFromCart',
-  async ({ userId, bookId }, { rejectWithValue }) => {
+  async ({ userId, bookId }, { rejectWithValue, getState }) => {
     try {
+      const state = getState();
+      const existingItem = state.cart.items.find(item => item.book?.id === bookId);
+
+      if (!existingItem) {
+        return rejectWithValue("Book not found in cart.");
+      }
+
       const response = await axiosInstance.delete(`/users/${userId}/cart/${bookId}`);
-      return response.data; // returns items and totalAmount
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
+
 
 const cartSlice = createSlice({
   name: 'cart',
@@ -83,13 +94,23 @@ const cartSlice = createSlice({
         state.error = action.payload;
       })
       .addCase(addToCart.fulfilled, (state, action) => {
-        state.items = action.payload.items;
-        state.totalAmount = action.payload.totalAmount;
+        const addedItem = action.payload;
+        const existingItem = state.items.find(item => item.book_id === addedItem.book_id);
+  
+        if (existingItem) {
+          existingItem.quantity = addedItem.quantity; // Update quantity from backend
+        } else {
+          state.items.push(addedItem);
+        }
+  
+        state.totalAmount = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
       })
+
       .addCase(removeFromCart.fulfilled, (state, action) => {
         state.items = action.payload.items;
         state.totalAmount = action.payload.totalAmount;
       });
+      
   }
 });
 

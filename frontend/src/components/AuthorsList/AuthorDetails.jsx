@@ -1,68 +1,115 @@
-// AuthorDetails.js
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchAuthorDetails } from '../../features/authors/authorsSlice';
-import { Card, Container, Spinner, Alert, Row, Col } from 'react-bootstrap';
-import Navbar from '../Navbar/Navbar';
-import './AuthorDetails.css';
+import React, { useEffect, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate, useParams } from "react-router-dom";
+import { fetchAuthorDetails } from "../../features/authors/authorsSlice";
+import { fetchBooksToSell } from "../../features/book_to_sell/book_to_sellSlice";
+import { addToCart } from "../../features/cart/cartSlice"; // Import addToCart action
+import { FaShoppingCart, FaHeart } from 'react-icons/fa'; // Import icons
+import './AuthorDetails.css'; // Import the CSS for styling
 
 const AuthorDetails = () => {
-  const { id } = useParams(); // Get author ID from the URL
   const dispatch = useDispatch();
-  const { author, books, loading, error } = useSelector((state) => state.authors);
-  
+  const { authorId } = useParams(); // Get the author ID from the URL
+  const { author, loading: authorLoading, error: authorError } = useSelector((state) => state.authors);
+  const { books = [], loading: booksLoading, error: booksError } = useSelector((state) => state.book_to_sell);
+  const { userId } = useSelector((state) => state.auth);
+  const [addedToCart, setAddedToCart] = useState(false);
+  const navigate=useNavigate();
+   const { user } = useSelector((state) => state.auth);
+
+  // Fetch author details and books when the component mounts
   useEffect(() => {
-    dispatch(fetchAuthorDetails(id)); // Dispatch action to fetch author details and books
-  }, [dispatch, id]);
+    dispatch(fetchAuthorDetails(authorId));
+    dispatch(fetchBooksToSell());
+  }, [dispatch, authorId]);
+  console.log(books);
+  
+
+  // Filter books by author ID
+  const filteredBooks = books.filter((book) => book.author_id === parseInt(authorId));
+
+  // Handle loading state
+  if (authorLoading || booksLoading) {
+    return <div>Loading...</div>;
+  }
+
+  // Handle error state
+  if (authorError) {
+    return <div>Error: {authorError}</div>;
+  }
+
+  if (booksError) {
+    return <div>Error: {booksError}</div>;
+  }
+
+  // Handle case where author is null or undefined
+  if (!author) {
+    return <div>Author not found.</div>;
+  }
+
+  const handleAddToCart = (book) => {
+      if (user) {
+        dispatch(addToCart({ userId: user.id, bookId: book.id, quantity: 1 }));
+        setAddedToCart(true); // Mark as added to cart
+      } else {
+        navigate('/login'); // Redirect to login if not authenticated
+      }
+    };
+
+  // Handle Add to Wishlist (You can create a similar action for this)
+  const handleAddToWishlist = (bookId) => {
+    console.log(`Added to wishlist: ${bookId}`);
+    // You can implement the logic for adding to wishlist here
+  };
 
   return (
-    <>
-      <Navbar />
-      <Container className="author-details-container">
-        {loading && (
-          <div className="text-center">
-            <Spinner animation="border" />
-          </div>
+    <div className="author-details">
+      <div className="author-info">
+        <img
+          src={`http://127.0.0.1:8000/storage/AuthorImages/${author.image}`} // Adjust path accordingly
+          alt={author.name}
+          className="author-img"
+        />
+        <div>
+          <h2>{author.name}</h2>
+          <p>{author.bio}</p>
+        </div>
+      </div>
+
+      <div className="books-list">
+        <h3>Books by {author.name}</h3>
+        {filteredBooks.length > 0 ? (
+          <ul>
+            {filteredBooks.map((book) => (
+              <li key={book.id} className="book-item">
+                <div className="book-image">
+                  <img
+                    src={`http://127.0.0.1:8000/storage/BookImages/${book.image}`} // Adjust path accordingly
+                    alt={book.title}
+                    className="book-img"
+                  />
+                </div>
+                <div className="book-info">
+                  <strong>{book.title}</strong> - ${book.price}
+                </div>
+                <div className="book-actions">
+                  <FaShoppingCart
+                    className="cart-icon"
+                    onClick={() => handleAddToCart(book)}
+                  />
+                  <FaHeart
+                    className="wishlist-icon"
+                    onClick={() => handleAddToWishlist(book)}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No books found for this author.</p>
         )}
-
-        {error && <Alert variant="danger">{error}</Alert>}
-
-        {author && (
-          <Card className="mb-4">
-            <Card.Img
-              variant="top"
-              src={author.image ? `http://127.0.0.1:8000/storage/AuthorImages/${author.image}` : 'https://via.placeholder.com/150'}
-              alt={author.name}
-              className="author-image"
-            />
-            <Card.Body>
-              <Card.Title>{author.name}</Card.Title>
-              <Card.Text>{author.bio}</Card.Text>
-            </Card.Body>
-          </Card>
-        )}
-
-        <h3>Books by {author?.name}</h3>
-        <Row>
-          {books?.map((book) => (
-            <Col key={book.id} md={4} lg={3} className="mb-4">
-              <Card className="shadow-sm">
-                <Card.Img
-                  variant="top"
-                  src={book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/150'}
-                  alt={book.title}
-                />
-                <Card.Body>
-                  <Card.Title>{book.title}</Card.Title>
-                  <Card.Text>{book.description}</Card.Text>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      </Container>
-    </>
+      </div>
+    </div>
   );
 };
 

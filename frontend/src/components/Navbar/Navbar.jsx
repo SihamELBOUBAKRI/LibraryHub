@@ -4,7 +4,6 @@ import { useSelector } from 'react-redux';
 import {
   FaBook,
   FaUser,
-  FaShoppingCart,
   FaHeart,
   FaUsers,
   FaList,
@@ -102,11 +101,6 @@ const Navbar = () => {
               <li>
                 <Link to="/books" className="nav-link">
                   <FaBook /> Books
-                </Link>
-              </li>
-              <li>
-                <Link to="/CustomerDashboard/cart" className="nav-link">
-                  <FaShoppingCart /> Cart
                 </Link>
               </li>
               <li>

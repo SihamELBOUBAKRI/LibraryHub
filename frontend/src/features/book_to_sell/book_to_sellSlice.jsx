@@ -27,7 +27,8 @@ const bookToSellSlice = createSlice({
       })
       .addCase(fetchBooksToSell.fulfilled, (state, action) => {
         state.loading = false;
-        state.books = action.payload; // Set fetched books
+        state.books = action.payload; 
+        
       })
       .addCase(fetchBooksToSell.rejected, (state, action) => {
         state.loading = false;

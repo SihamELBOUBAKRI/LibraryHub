@@ -48,6 +48,7 @@ Route::middleware('auth:api')->group(function () {
     Route::post('/users/{userId}/cart', [CartController::class, 'addToCart']); // Add a book to the cart
     Route::get('/users/{userId}/cart', [CartController::class, 'getCart']); // Get the user's cart
     Route::delete('/users/{userId}/cart/{bookId}', [CartController::class, 'removeFromCart']); // Remove a book from the cart
+    Route::put('/users/{userId}/cart/{bookId}', [CartController::class, 'update']);
 
     // Wishlist Routes
     Route::post('/users/{userId}/wishlist', [WishlistController::class, 'addToWishlist']); // Add a book to the wishlist
