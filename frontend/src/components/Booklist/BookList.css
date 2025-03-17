@@ -1,0 +1,120 @@
+.book-list-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 120px;
+  margin-left: 0;
+
+}
+
+.book-list-title {
+  text-align: center;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.book-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px; /* Space between books */
+}
+
+.book-image {
+  width: 120px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.book-image:hover {
+  transform: scale(1.1);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.large-image {
+  width: 200px;
+  height: 300px;
+}
+
+.book-info-container {
+  display: inline-block; /* Ensures it stays inline */
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 20px;
+  width: 350px; /* Adjust as needed */
+  font-family: 'Poppins', sans-serif;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  position: relative;
+  margin-bottom: 15px; /* Reduce bottom margin to prevent large gaps */
+}
+
+.book-details {
+  display: flex;
+  flex-direction: column; /* Stack details vertically */
+  align-items: center;
+  gap: 6px; /* Space between details */
+  margin-top: 10px;
+}
+
+.book-detail {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 8px;
+  border-radius: 6px;
+  width: 90%;
+  text-align: left;
+}
+
+.book-detail i {
+  font-size: 14px;
+  margin-right: 8px;
+  color: #af002d;
+}
+
+.book-actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 10px;
+}
+
+.book-actions i {
+  font-size: 20px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: #af002d;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.book-actions i:hover {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(1.1);
+  color: #fff;
+}
+
+/* Fix spacing issue between books and details */
+.book-list-container .book-info-container + .book-list {
+  margin-top: -10px; /* Reduce unnecessary gap */
+}
+
+/* Responsive Fix */
+@media (max-width: 768px) {
+  .book-list {
+    justify-content: center;
+  }
+
+  .book-info-container {
+    max-width: 100%;
+  }
+
+  .book-detail {
+    width: 100%;
+  }
+}

@@ -1,0 +1,179 @@
+/* Global Styles */
+:root {
+    --primary-color: #4a90e2;
+    --secondary-color: #2c3e50;
+    --background-light: #f4f6f9;
+    --white: #ffffff;
+    --shadow-light: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  body {
+    background-color: var(--background-light);
+    font-family: 'Poppins', sans-serif;
+    padding: 0;
+    color: var(--secondary-color);
+    margin-left: 100px;
+  }
+  
+  /* Admin Dashboard Container */
+  .admin-dashboard {
+    padding: 20px;
+    max-width: 1200px;
+  }
+  
+  h1 {
+    font-size: 2.2rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 25px;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+  }
+  
+  /* Navigation Tabs */
+  nav {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    background-color: var(--white);
+    padding: 12px 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-light);
+  }
+  
+  nav button {
+    padding: 12px 18px;
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--secondary-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 6px;
+  }
+  
+  nav button:hover, nav button.active {
+    color: var(--primary-color);
+    background: rgba(74, 144, 226, 0.1);
+    border-bottom: 3px solid var(--primary-color);
+  }
+  
+  /* Cards */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 25px;
+    margin-top: 20px;
+  }
+  
+  .card {
+    background: var(--white);
+    padding: 25px;
+    border-radius: 14px;
+    box-shadow: var(--shadow-light);
+    transition: transform 0.3s ease-in-out;
+    text-align: center;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .card h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  
+  .card p {
+    font-size: 26px;
+    font-weight: bold;
+    color: var(--primary-color);
+  }
+  
+  /* Tables */
+  .table-container {
+    overflow-x: auto;
+    background: var(--white);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-light);
+    margin-top: 20px;
+  }
+  
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-light);
+  }
+  
+  table th, table td {
+    padding: 14px 18px;
+    text-align: left;
+  }
+  
+  table th {
+    background-color: var(--primary-color);
+    color: var(--white);
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+  
+  table tr:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  
+  table tr:hover {
+    background-color: #eef2f7;
+  }
+  
+  /* Buttons */
+  button {
+    padding: 10px 14px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.3s ease;
+  }
+  
+  button.edit {
+    background: var(--primary-color);
+    color: var(--white);
+  }
+  
+  button.delete {
+    background: #e74c3c;
+    color: var(--white);
+  }
+  
+  button:hover {
+    opacity: 0.85;
+  }
+
+  /* AdminDashboard.css */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  width: 100%;
+}

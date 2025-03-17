@@ -1,0 +1,152 @@
+/* CustomerDashboard.css */
+.dashboard-container{
+  margin-left: 100px;
+}
+/* Overall Layout */
+.customer-dashboard-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #ece7d5;
+  color: #333;
+}
+
+/* Top Navbar Styling */
+.top-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.8rem 2rem;
+  background: linear-gradient(145deg,#af002d,#ece7d5);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.navbar-brand h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  color: #fff;
+}
+
+.navbar-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  max-width: 500px;
+}
+
+.search-container {
+  position: relative;
+  width: 100%;
+}
+
+.search-container input {
+  width: 100%;
+  padding: 0.8rem 1rem 0.8rem 2.5rem;
+  border-radius: 30px;
+  border: none;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  backdrop-filter: blur(8px);
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.search-container input::placeholder {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.search-container input:focus {
+  outline: none;
+  background-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+.search-button {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+.navbar-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.navbar-action-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: #b23c59;
+}
+
+.navbar-action-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+
+/* Dashboard Box Styling */
+.dashboard-box {
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin-top: 20px;
+  width: 80%;
+  max-width: 900px;
+}
+
+.dashboard-box h2 {
+  margin-bottom: 10px;
+  font-size: 1.8rem;
+  color: #333;
+}
+
+.dashboard-box p {
+  margin: 10px 0;
+  font-size: 1rem;
+  color: #555;
+}
+
+/* Mobile Responsiveness for Dashboard Box */
+@media (max-width: 768px) {
+  .dashboard-box {
+    width: 100%;
+    padding: 15px;
+  }
+
+  .dashboard-box h2 {
+    font-size: 1.6rem;
+  }
+
+  .dashboard-box p {
+    font-size: 0.9rem;
+  }
+
+}
+
