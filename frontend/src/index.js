@@ -9,7 +9,6 @@ import App from './App';
 import authReducer from './features/auth/authSlice';
 import cartReducer from './features/cart/cartSlice';
 import wishlistReducer from './features/wishlist/wishlistSlice';
-import categoryReducer from './features/categories/categorySlice';
 import usersReducerr from './features/users/userSlice';
 import ordersReducer from './features/orders/orderSlice';
 import authorsReducer from './features/authors/authorsSlice';
@@ -28,7 +27,6 @@ const store = configureStore({
     auth: authReducer, // Fixed typo: Changed `autt` to `auth`
     cart: cartReducer,
     wishlist: wishlistReducer,
-    categories: categoryReducer,
     users: usersReducerr,
     orders: ordersReducer,
     authors: authorsReducer,

@@ -3,13 +3,11 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchBooksToSell } from '../../features/book_to_sell/book_to_sellSlice';
 import { fetchBooksToRent } from '../../features/book_to_rent/book_to_rentSlice';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Row, Button, Spinner } from 'react-bootstrap';
+import { Container, Row, Button, Spinner, Form, InputGroup } from 'react-bootstrap';
 import { addToCart } from '../../features/cart/cartSlice';
-import { addWishlistItem } from '../../features/wishlist/wishlistSlice';
+import { addWishlistItem, removeWishlistItem } from '../../features/wishlist/wishlistSlice';
 import './BookList.css';
-import CategoriesSidebar from '../CategoriesSidebar/CategoriesSidebar';
-import { FaCartPlus, FaRegHeart, FaHeart } from 'react-icons/fa';
-
+import { FaSearch } from 'react-icons/fa';
 
 const BookList = () => {
   const dispatch = useDispatch();
@@ -18,10 +16,14 @@ const BookList = () => {
   const [selectedBook, setSelectedBook] = useState(null); // Track the selected book
   const [addedToCart, setAddedToCart] = useState(false);
   const [addedToWishlist, setAddedToWishlist] = useState(false);
-  
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery); // Local search query state
+  const [filteredBooks, setFilteredBooks] = useState([]); // Filtered books based on search query
+  const [cartItems, setCartItems] = useState({});
   const { books = [], loading: booksLoading, error: booksError } = useSelector((state) => state.book_to_sell);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
-  const navigate =useNavigate();
+  const wishlist = useSelector((state) => state.wishlist.items);
+
+  const navigate = useNavigate();
 
   useEffect(() => {
     dispatch(fetchBooksToSell());
@@ -30,19 +32,53 @@ const BookList = () => {
     }
   }, [dispatch, isAuthenticated, user]);
 
-  const handleAddToCart = (book) => {
+  useEffect(() => {
+    // Filter books based on the search query
+    const filtered = books.filter((book) =>
+      book.title.toLowerCase().includes(localSearchQuery.toLowerCase())
+    );
+    setFilteredBooks(filtered);
+  }, [localSearchQuery, books]);
+
+  const handleWishlistToggle = (book) => {
     if (user) {
-      dispatch(addToCart({ userId: user.id, bookId: book.id, quantity: 1 }));
-      setAddedToCart(true); // Mark as added to cart
+      // Using find() to check for the book in the wishlist
+      const bookInWishlist = wishlist.find((item) => item.id === book.id);
+  console.log(bookInWishlist);
+  
+      if (bookInWishlist) {
+        // If book is found, remove from wishlist
+        dispatch(removeWishlistItem({ userId: user.id, bookId: book.id }));
+      } else {
+        // If book is not found, add to wishlist
+        dispatch(addWishlistItem({ userId: user.id, bookId: book.id }));
+      }
     } else {
       navigate('/login'); // Redirect to login if not authenticated
     }
   };
   
-  const handleAddToWishlist = (book) => {
-    if (isAuthenticated && user) {
-      dispatch(addWishlistItem(book));
-      setAddedToWishlist(true); // Mark as added to wishlist
+  
+  
+
+  const handleAddToCart = (book) => {
+    if (user) {
+      dispatch(addToCart({ userId: user.id, bookId: book.id, quantity: 1 }));
+      setAddedToCart(true); // Your existing logic
+  
+      // Change cart icon color
+      setCartItems((prev) => ({
+        ...prev,
+        [book.id]: true, // Mark book as added
+      }));
+  
+      // Revert color after 3 minutes
+      setTimeout(() => {
+        setCartItems((prev) => ({
+          ...prev,
+          [book.id]: false, // Reset color
+        }));
+      }, 3 * 60 * 1000); // 3 minutes in milliseconds
     } else {
       navigate('/login'); // Redirect to login if not authenticated
     }
@@ -51,13 +87,16 @@ const BookList = () => {
 
   const handleBookClick = (book) => {
     setSelectedBook(book);
-    window.scrollTo(0, 0);  // Scroll to top when a book is clicked
-    
+    window.scrollTo(0, 0); // Scroll to top when a book is clicked
   };
 
-  const filteredBooks = books.filter((book) =>
-    book.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSearch = () => {
+    // Update the filtered books based on the local search query
+    const filtered = books.filter((book) =>
+      book.title.toLowerCase().includes(localSearchQuery.toLowerCase())
+    );
+    setFilteredBooks(filtered);
+  };
 
   // Sort books to move the clicked book to the top
   const sortedBooks = selectedBook
@@ -82,62 +121,84 @@ const BookList = () => {
 
   return (
     <Container className="book-list-container">
-      <CategoriesSidebar />
       <Row>
-        
-      <h2 className="book-list-title">Books</h2>
+        {/* Search Bar */}
+        <div className="search-bar-container">
+          <InputGroup className="mb-3">
+            <Form.Control
+              type="text"
+              placeholder="Search books..."
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
+            />
+            <Button variant="outline-secondary" onClick={handleSearch}>
+              <FaSearch />
+            </Button>
+          </InputGroup>
+        </div>
+
+        <h2 className="book-list-title">Books</h2>
 
         <div className="book-list">
+          {selectedBook && (
+            <div className="book-info-container">
+              <div className="info">
+                <h2>{selectedBook.title}</h2>
+                <p>{selectedBook.description}</p>
 
-        {selectedBook && (
-          <div className="book-info-container">
-            <div className="info">
-              <h2>{selectedBook.title}</h2>
-              <p>{selectedBook.description}</p>
+                <div className="book-details">
+                  <div className="book-detail">
+                    <i className="fas fa-user"></i>
+                    <span>Author: {selectedBook.author.name}</span> {/* Displaying Author ID */}
+                  </div>
 
-              <div className="book-details">
-                <div className="book-detail">
-                  <i className="fas fa-user"></i>
-                  <span>Author: {selectedBook.author.name}</span> {/* Displaying Author ID */}
+                  <div className="book-detail">
+                    <i className="fas fa-tags"></i>
+                    <span>Category: {selectedBook.category.name}</span> {/* Displaying Category Name */}
+                  </div>
+
+                  <div className="book-detail">
+                    <i className="fas fa-dollar-sign"></i>
+                    <span> Price :{selectedBook.price} USD</span>
+                  </div>
+
+                  <div className="book-detail">
+                    <i className="fas fa-calendar-alt"></i>
+                    <span>Published: {selectedBook.published_year}</span> {/* Displaying Published Year */}
+                  </div>
+
+                  <div className="book-detail">
+                    <i className="fas fa-box"></i>
+                    <span>Stock: {selectedBook.stock}</span> {/* Displaying Stock */}
+                  </div>
                 </div>
-              
-                <div className="book-detail">
-                  <i className="fas fa-tags"></i>
-                  <span>Category: {selectedBook.category.name}</span> {/* Displaying Category Name */}
+
+                <div className="book-actions">
+                <i
+                  className="fas fa-cart-plus"
+                  onClick={() => handleAddToCart(selectedBook)}
+                  style={{ color: cartItems[selectedBook?.id] ? '#af002d' : 'black' }} // Color logic for cart
+                ></i>
+
+                <i
+                  className={`fas fa-heart ${wishlist.some(item => item.id === selectedBook?.id) ? 'red-heart' : ''}`}
+                  onClick={() => handleWishlistToggle(selectedBook)}
+                  style={{ color: wishlist.some(item => item.id === selectedBook?.id) ? '#af002d' : 'black' }} // Color logic for wishlist
+                ></i>
+
                 </div>
-
-              <div className="book-detail">
-                <i className="fas fa-dollar-sign"></i>
-                <span> Price :{selectedBook.price} USD</span>
-              </div>
-
-              <div className="book-detail">
-                <i className="fas fa-calendar-alt"></i>
-                <span>Published: {selectedBook.published_year}</span> {/* Displaying Published Year */}
-              </div>
-
-              <div className="book-detail">
-                <i className="fas fa-box"></i>
-                <span>Stock: {selectedBook.stock}</span> {/* Displaying Stock */}
               </div>
             </div>
+          )}
 
-            <div className="book-actions">
-              <i className="fas fa-cart-plus" onClick={() => handleAddToCart(selectedBook)}></i>
-              <i className="fas fa-heart" onClick={() => handleAddToWishlist(selectedBook)}></i>
-            </div>
-            </div>
-          </div>
-        )}
-
-        {(searchQuery ? filteredBooks : sortedBooks).map((book) => (
-              <img
-                key={book.id}
-                onClick={() => handleBookClick(book)}
-                src={book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/150'}
-                alt={book.title}
-                className={`book-image ${selectedBook?.id === book.id ? 'large-image' : ''}`}
-              />
+          {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
+            <img
+              key={book.id}
+              onClick={() => handleBookClick(book)}
+              src={book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/150'}
+              alt={book.title}
+              className={`book-image ${selectedBook?.id === book.id ? 'large-image' : ''}`}
+            />
           ))}
         </div>
       </Row>

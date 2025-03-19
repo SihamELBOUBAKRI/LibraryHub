@@ -98,16 +98,7 @@ const Navbar = () => {
                   <FaUser /> profile
                 </Link>
               </li>
-              <li>
-                <Link to="/books" className="nav-link">
-                  <FaBook /> Books
-                </Link>
-              </li>
-              <li>
-                <Link to="/wishlist" className="nav-link">
-                  <FaHeart /> Wishlist
-                </Link>
-              </li>
+              
               {/* Show rentals if user is a member */}
               {user.isamember && (
                 <li>

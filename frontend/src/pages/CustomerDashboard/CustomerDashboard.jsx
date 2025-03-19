@@ -3,49 +3,89 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../features/auth/authSlice';
 import { fetchCart, removeFromCart } from '../../features/cart/cartSlice';
-import { FaShoppingCart, FaSignOutAlt, FaHome, FaSearch, FaTrash, FaUser } from 'react-icons/fa';
-import { Button, Offcanvas, Form } from 'react-bootstrap'; // Bootstrap for offcanvas
+import { FaShoppingCart, FaSignOutAlt, FaHome, FaSearch, FaTrash, FaHeart } from 'react-icons/fa';
+import { Button, Offcanvas } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './CustomerDashboard.css';
-import BookList from '../../components/Booklist/BookList';
+import { fetchWishlist, addWishlistItem, removeWishlistItem } from '../../features/wishlist/wishlistSlice';
 
 const CustomerDashboard = () => {
+  const [active, setActive] = useState('profile');
   const [showCart, setShowCart] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [profileData, setProfileData] = useState({
-    name: '',
-    email: '',
-    address: '',
-    password: ''
-  });
+  const [removingItem, setRemovingItem] = useState(null);
+  const [showWishlist, setShowWishlist] = useState(false);
   const cartItems = useSelector((state) => state.cart.items);
+  const wishlistItems = useSelector((state) => state.wishlist.items);
   const { user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [filteredCartItems, setFilteredCartItems] = useState([]);
+  const [filteredWishlistItems, setfilteredWishlistItems] = useState([]);
 
+  
   useEffect(() => {
     if (user) {
-      dispatch(fetchCart(user.id));
-      setProfileData({
-        name: user.name,
-        email: user.email,
-        address: user.address || '',
-        password: ''
+      dispatch(fetchCart(user.id)).then((res) => {
+        setFilteredCartItems(res.payload.items);
+      });
+      dispatch(fetchWishlist(user.id)).then((res) => {
+        setfilteredWishlistItems(res.payload);
       });
     }
   }, [dispatch, user]);
+  
+  
+  const handleRemoveItem = async (bookId) => {
+    if (user) {
+      setRemovingItem(bookId);
+      try {
+        await dispatch(removeFromCart({ userId: user.id, bookId })).unwrap();
+        // Update filtered cart items
+        setFilteredCartItems((prevItems) => prevItems.filter((item) => item.book?.id !== bookId));
+        toast.success('Item removed successfully!');
+      } catch (error) {
+        toast.error('Failed to remove item.');
+      } finally {
+        setRemovingItem(null);
+      }
+    }
+  };
+  const handleRemoveFromWishlist = async (bookId) => {
+    if (user) {
+      setRemovingItem(bookId); // Set removing item to show a loading state
+      try {
+        await dispatch(removeWishlistItem({ userId: user.id, bookId })).unwrap();
+        setfilteredWishlistItems((prevItems) => prevItems.filter((item) => item.id !== bookId));
+        toast.success('Item removed from wishlist!');
+      } catch (error) {
+        toast.error('Failed to remove item from wishlist.');
+      } finally {
+        setRemovingItem(null); // Reset removing item state
+      }
+    } else {
+      navigate('/login'); // Redirect to login if not authenticated
+    }
+  };
+  
+  
 
   const handleLogout = () => {
     dispatch(logout());
     navigate('/login');
   };
 
-  const handleSaveProfile = () => {
-    toast.success('Profile updated successfully!');
-    setEditingProfile(false);
+  const calculateTotalAmount = (items) => {
+    return items.reduce((acc, item) => {
+      const price = parseFloat(item.book?.price) || 0;
+      const quantity = item.quantity || 1;
+      return acc + price * quantity;
+    }, 0).toFixed(2);
   };
+
+  if (!user) {
+    return <p>Loading user data...</p>;
+  }
 
   return (
     <>
@@ -60,44 +100,98 @@ const CustomerDashboard = () => {
             </div>
           </div>
           <div className="navbar-actions">
-            <button className="navbar-action-button" onClick={() => navigate('/')}> <FaHome /> <span>Home</span> </button>
-            <button className="navbar-action-button" onClick={() => setShowCart(true)}> <FaShoppingCart /> <span>Cart ({cartItems.length})</span> </button>
-            <button className="navbar-action-button" onClick={() => setShowProfile(true)}> <FaUser /> <span>Profile</span> </button>
+            <button className="navbar-action-button" onClick={() => navigate('/')}>
+              <FaHome />
+              <span>Home</span>
+            </button>
+            <button className="navbar-action-button" onClick={() => setShowCart(true)}>
+              <FaShoppingCart />
+              <span>Cart ({filteredCartItems.length})</span>
+            </button>
+            <button className="navbar-action-button" onClick={() => setShowWishlist(true)}>
+              <FaHeart />
+              <span>Wishlist ({filteredWishlistItems.length})</span>
+            </button>
+            <button className="navbar-action-button" onClick={handleLogout}>
+              <FaSignOutAlt />
+              <span>Logout</span>
+            </button>
           </div>
         </div>
+
+        {/* Profile Section */}
+        <div className={`dashboard-content-section ${active === 'profile' ? 'active' : ''}`} id="profile">
+          <h2>Welcome, {user.name}!</h2>
+          <p><strong>Email:</strong> {user.email}</p>
+          <p><strong>Role:</strong> {user.role}</p>
+          <p><strong>Member Status:</strong> {user.isamember ? 'Member' : 'Not a Member'}</p>
+          <p><strong>Address:</strong> {user.address || 'Not provided'}</p>
+          <p><strong>Phone:</strong> {user.tele || 'Not provided'}</p>
+        </div>
       </div>
-      {/* Profile Offcanvas */}
-      <Offcanvas show={showProfile} onHide={() => setShowProfile(false)} placement="end">
+
+      {/* Offcanvas Cart */}
+      <Offcanvas show={showCart} onHide={() => setShowCart(false)} placement="end">
         <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Your Profile</Offcanvas.Title>
+          <Offcanvas.Title>Your Cart</Offcanvas.Title>
         </Offcanvas.Header>
         <Offcanvas.Body>
-          <Form>
-            <Form.Group controlId="formName">
-              <Form.Label>Name</Form.Label>
-              <Form.Control type="text" value={profileData.name} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, name: e.target.value })} />
-            </Form.Group>
-
-            <Form.Group controlId="formEmail">
-              <Form.Label>Email</Form.Label>
-              <Form.Control type="email" value={profileData.email} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, email: e.target.value })} />
-            </Form.Group>
-
-            <Form.Group controlId="formAddress">
-              <Form.Label>Address</Form.Label>
-              <Form.Control type="text" value={profileData.address} disabled={!editingProfile} onChange={(e) => setProfileData({ ...profileData, address: e.target.value })} />
-            </Form.Group>
-
-            {editingProfile && (
-              <Button variant="primary" className="mt-3" onClick={handleSaveProfile}>Save Profile</Button>
-            )}
-          </Form>
-
-          {!editingProfile && (
-            <Button variant="warning" className="mt-3" onClick={() => setEditingProfile(true)}>Edit Profile</Button>
+          {filteredCartItems.length === 0 ? (
+            <p>Your cart is empty</p>
+          ) : (
+            <>
+              <ul className="cart-items-list">
+                {filteredCartItems.map((item) => (
+                  <li key={item.id} className="cart-item">
+                    <span>Qty: {item.quantity}</span>
+                    <span>{item.book?.title || 'Unknown Title'}</span>
+                    <span>${(item.book?.price * item.quantity || 0).toFixed(2)}</span>
+                    <FaTrash
+                      className="remove-icon"
+                      onClick={() => handleRemoveItem(item.book?.id)}
+                      disabled={removingItem === item.book?.id}
+                    />
+                  </li>
+                ))}
+              </ul>
+              <div className="cart-summary">
+                <h3>Total: ${calculateTotalAmount(filteredCartItems)}</h3>
+              </div>
+              <Button variant="primary" className="checkout-button" onClick={() => alert('Proceeding to checkout...')}>
+                Proceed to Checkout
+              </Button>
+            </>
           )}
+        </Offcanvas.Body>
+      </Offcanvas>
 
-          <Button variant="danger" className="mt-3" onClick={handleLogout}>Logout</Button>
+      {/* Offcanvas Wishlist */}
+      <Offcanvas show={showWishlist} onHide={() => setShowWishlist(false)} placement="end">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Your Wishlist</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          {filteredWishlistItems.length === 0 ? (
+            <p>Your wishlist is empty</p>
+          ) : (
+            <ul className="wishlist-items-list">
+              {filteredWishlistItems.map((item) => (
+                <li key={item.id} className="wishlist-item">
+                  <div className="wishlist-item-details">
+                    <span className="wishlist-item-title">{item.title}</span>
+                    <span className="wishlist-item-author">Author: {item.author?.name}</span>
+                    <span className="wishlist-item-price">Price: ${item.price}</span>
+                  </div>
+                  <i
+                    className="fas fa-trash delete-icon"
+                    onClick={() => handleRemoveFromWishlist(item.id)} // Call remove function
+                    style={{ color: 'red', cursor: 'pointer' }}
+                  ></i>
+                </li>
+              ))}
+
+            </ul>
+          )}
         </Offcanvas.Body>
       </Offcanvas>
 
