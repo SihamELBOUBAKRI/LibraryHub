@@ -1,0 +1,721 @@
+/* =============== BASE STYLES =============== */
+.purchases-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 20px 20px 110px;
+  width: 100%;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* =============== SECTION BOXES =============== */
+.purchases-top {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.purchases-square {
+  background: linear-gradient(135deg, #af002d, #d33f5d);
+  border-radius: 12px;
+  padding: 15px;
+  width: 220px;
+  height: 110px;
+  text-align: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+}
+
+.purchases-square.active {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(175, 0, 45, 0.3);
+}
+
+.purchases-square:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+.purchases-square h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.purchases-square p {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+/* =============== TABLE SECTION =============== */
+.table-section {
+  width: 100%;
+  max-width: 1200px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  padding: 25px;
+}
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.table-header h2 {
+  color: #af002d;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* =============== TABLES =============== */
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+thead th {
+  padding: 15px;
+  text-align: left;
+  background-color: #f5f5f5;
+  color: #333;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+}
+
+tbody tr {
+  transition: background 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+tbody tr:last-child {
+  border-bottom: none;
+}
+
+tbody tr:hover {
+  background-color: #fafafa;
+}
+
+td {
+  padding: 14px 15px;
+  color: #555;
+  font-size: 10px;
+}
+
+/* =============== STATUS CLASSES =============== */
+.status-completed {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.status-pending {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.status-failed {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.status-default {
+  color: #6c757d;
+}
+
+/* =============== ACTION BUTTONS =============== */
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-btn, .delete-btn, .add-btn {
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  font-size: 14px;
+}
+
+.edit-btn {
+  background-color: #17a2b8;
+  color: white;
+  width: 34px;
+  height: 34px;
+}
+
+.edit-btn:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  color: white;
+  width: 34px;
+  height: 34px;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+  transform: translateY(-1px);
+}
+
+.add-btn {
+  background-color: #28a745;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.add-btn:hover {
+  background-color: #218838;
+  transform: translateY(-1px);
+}
+
+
+/* =============== FORM STYLES =============== */
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  background-color: #f9f9f9;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: #af002d;
+  box-shadow: 0 0 0 3px rgba(175, 0, 45, 0.1);
+  background-color: white;
+}
+
+.save-btn, .save {
+  background: linear-gradient(to right, #af002d, #d33f5d);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-btn:hover, .save:hover {
+  background: linear-gradient(to right, #8f0024, #b82e4a);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(175, 0, 45, 0.2);
+}
+
+.cancel-btn, .btn-secondary {
+  background: white;
+  color: #555;
+  border: 1px solid #ddd;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover, .btn-secondary:hover {
+  background: #f5f5f5;
+  transform: translateY(-1px);
+}
+
+/* =============== FILTER & SEARCH =============== */
+.filter-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.status-filter, .search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-filter label {
+  font-weight: 500;
+  color: #555;
+  font-size: 14px;
+}
+
+.status-filter select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  background-color: #f9f9f9;
+}
+
+.search-bar input {
+  padding: 8px 15px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  min-width: 250px;
+  background-color: #f9f9f9;
+}
+
+.search-bar input:focus {
+  outline: none;
+  border-color: #af002d;
+  box-shadow: 0 0 0 3px rgba(175, 0, 45, 0.1);
+}
+
+/* =============== REACT SELECT =============== */
+.react-select__control {
+  border: 1px solid #ddd !important;
+  min-height: 42px !important;
+  border-radius: 8px !important;
+  background-color: #f9f9f9 !important;
+  transition: all 0.2s !important;
+}
+
+.react-select__control--is-focused {
+  border-color: #af002d !important;
+  box-shadow: 0 0 0 3px rgba(175, 0, 45, 0.1) !important;
+  background-color: white !important;
+}
+
+.react-select__option--is-selected {
+  background-color: #af002d !important;
+}
+
+.react-select__option--is-focused {
+  background-color: #f5f5f5 !important;
+}
+
+.react-select__indicator-separator {
+  background-color: #ddd !important;
+}
+
+/* =============== STATUS DROPDOWN =============== */
+.status-dropdown select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  border: none;
+  padding: 6px 28px 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+}
+
+.status-waiting select {
+  background-color: #FFF3CD;
+  color: #856404;
+}
+
+.status-picked select {
+  background-color: #D4EDDA;
+  color: #155724;
+}
+
+.status-expired select {
+  background-color: #E2E3E5;
+  color: #383D41;
+}
+
+.status-cancelled select {
+  background-color: #F8D7DA;
+  color: #721C24;
+}
+
+/* =============== ANIMATIONS =============== */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =============== RESPONSIVE DESIGN =============== */
+@media (max-width: 768px) {
+  .purchases-container {
+    padding: 15px;
+  }
+  
+  .purchases-top {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .purchases-square {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .table-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .filter-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .search-bar input {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .modal-content {
+    width: 90%;
+  }
+}
+
+@media (max-width: 480px) {
+  td, th {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+    gap: 5px;
+  }
+  
+  .edit-btn, .delete-btn {
+    width: 100%;
+  }
+  
+  .modal-body {
+    padding: 15px;
+  }
+}
+/* =============== MODAL ENHANCEMENTS =============== */
+.m-overlay, .form-m {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    background-color: rgba(40, 40, 40, 0.7); /* Darker, more premium overlay */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: overlayFadeIn 0.3s ease-out;
+    pointer-events: auto; /* Ensure overlay blocks interactions */
+  }
+  
+  .m-content {
+    position: relative;
+    background: white;
+    border-radius: 16px;
+    width: 520px;
+    max-width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+    animation: modalSlideIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    border: none;
+    transform-origin: center center;
+  }
+  
+  .m-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 22px 28px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    background: linear-gradient(135deg, #9c0030, #c22a4e);
+    border-radius: 16px 16px 0 0;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  
+  .m-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  
+  .close-m, .close {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 18px;
+  }
+  
+  .close-m:hover, .close:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: rotate(90deg) scale(1.1);
+  }
+  
+  .m-body {
+    padding: 28px;
+  }
+  
+  .m-footer, .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    padding: 20px 28px;
+    background: #f9f9f9;
+    border-radius: 0 0 16px 16px;
+    position: sticky;
+    bottom: 0;
+    border-top: 1px solid #eee;
+  }
+  
+  /* Enhanced form elements */
+  .form-group {
+    margin-bottom: 24px;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 500;
+    color: #444;
+    font-size: 0.95rem;
+  }
+  
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    padding: 14px 18px;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    font-size: 0.95rem;
+    transition: all 0.3s;
+    background-color: #fcfcfc;
+  }
+  
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #af002d;
+    box-shadow: 0 0 0 3px rgba(175, 0, 45, 0.1);
+    background-color: white;
+  }
+  
+  /* Premium buttons */
+  .save-btn, .save {
+    background: linear-gradient(135deg, #af002d, #d33f5d);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 0.95rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(175, 0, 45, 0.2);
+  }
+  
+  .save-btn:hover, .save:hover {
+    background: linear-gradient(135deg, #8f0024, #b82e4a);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(175, 0, 45, 0.3);
+  }
+  
+  .cancel-btn, .btn-secondary {
+    background: white;
+    color: #555;
+    border: 1px solid #e0e0e0;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  
+  .cancel-btn:hover, .btn-secondary:hover {
+    background: #f5f5f5;
+    border-color: #d0d0d0;
+    transform: translateY(-2px);
+  }
+  
+  /* =============== ENHANCED STATUS SELECT =============== */
+  .status-dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .status-dropdown select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    border: none !important; /* Remove all borders */
+    outline: none;
+    cursor: pointer;
+    padding: 6px 28px 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+    box-shadow: none !important;
+    text-align: center;
+    
+    /* Custom dropdown arrow */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 14px;
+  }
+  
+  /* Status-specific colors */
+  .status-waiting select {
+    background-color: rgba(255, 193, 7, 0.2);
+    color: #b58900;
+  }
+  
+  .status-picked select {
+    background-color: rgba(40, 167, 69, 0.2);
+    color: #2d8a3e;
+  }
+  
+  .status-expired select {
+    background-color: rgba(108, 117, 125, 0.2);
+    color: #495057;
+  }
+  
+  .status-cancelled select {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #c92a2a;
+  }
+  
+  /* Hover effects */
+  .status-dropdown select:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+  }
+  
+  /* Focus state */
+  .status-dropdown select:focus {
+    box-shadow: 0 0 0 3px rgba(175, 0, 45, 0.1) !important;
+  }
+  
+  /* Options styling */
+  .status-dropdown select option {
+    padding: 10px;
+    background: white;
+    color: #333;
+  }
+  
+  /* =============== ANIMATIONS =============== */
+  @keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  
+  @keyframes modalSlideIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  /* =============== OTHER ENHANCEMENTS =============== */
+  /* Scrollbar styling for modal */
+  .modal-content::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 0 0 16px 0;
+  }
+  
+  .modal-content::-webkit-scrollbar-thumb {
+    background: #d33f5d;
+    border-radius: 4px;
+  }
+  
+  .modal-content::-webkit-scrollbar-thumb:hover {
+    background: #af002d;
+  }
+  
+  /* Disable body scroll when modal is open */
+  body.modal-open {
+    overflow: hidden;
+  }

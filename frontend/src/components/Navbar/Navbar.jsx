@@ -26,60 +26,32 @@ const Navbar = () => {
   return (
     <nav className="navbar">
       <Link to="/" className="nav-title">
-          LibraryHub
-        </Link>
-      <div className="nav-brand">
-        
+        LibraryHub
+      </Link>
+
       <div className="nav-links">
         <ul className="navbar-links">
-          
-          <li>
-              <Link to="/books" className="nav-link">
-                <FaBook /> Books
-              </Link>
-          </li>
-          <li>
-              <Link to="/authors" className="nav-link">
-                <FaUsers /> authors
-              </Link>
-          </li>
-
-          {/* Show for admin */}
-          {user && user.role === 'admin' && (
+          {/* Admin Links */}
+          {user?.role === 'admin' && (
             <>
               <li>
-                <Link to="/users" className="nav-link">
-                  <FaUsers /> Users
+                <Link to="/AdminDashboard" className="nav-link">
+                  <FaUser /> Profile
                 </Link>
               </li>
               <li>
-                <Link to="/members" className="nav-link">
-                  <FaUsers /> Members
+                <Link to="/books" className="nav-link">
+                  <FaBook /> Books to Sell
                 </Link>
               </li>
               <li>
-                <Link to="/transactions" className="nav-link">
-                  <FaMoneyBill /> Transactions
+                <Link to="/Rentbooks" className="nav-link">
+                  <FaBook /> Books to Rent
                 </Link>
               </li>
               <li>
-                <Link to="/active-rentals" className="nav-link">
-                  <FaClock /> ActiveRentals
-                </Link>
-              </li>
-              <li>
-                <Link to="/rentals" className="nav-link">
-                  <FaClipboardList /> Rentals
-                </Link>
-              </li>
-              <li>
-                <Link to="/overdues" className="nav-link">
-                  <FaClock /> Overdues
-                </Link>
-              </li>
-              <li>
-                <Link to="/orders" className="nav-link">
-                  <FaShoppingBag /> Orders
+                <Link to="/authors" className="nav-link">
+                  <FaUsers /> Authors
                 </Link>
               </li>
               <li>
@@ -87,52 +59,90 @@ const Navbar = () => {
                   <FaShoppingBag /> Purchases
                 </Link>
               </li>
+              <li>
+                <Link to="/rentals" className="nav-link">
+                  <FaList /> Rentals
+                </Link>
+              </li>
             </>
           )}
 
-          {/* Show for customer */}
-          {user && user.role === 'customer' && (
+          {/* Customer Links */}
+          {user?.role === 'customer' && (
             <>
               <li>
                 <Link to="/CustomerDashboard" className="nav-link">
-                  <FaUser /> profile
+                  <FaUser /> Profile
                 </Link>
               </li>
-              
-              {/* Show rentals if user is a member */}
+              <li>
+                <Link to="/books" className="nav-link">
+                  <FaBook /> Books
+                </Link>
+              </li>
+              <li>
+                <Link to="/authors" className="nav-link">
+                  <FaUsers /> Authors
+                </Link>
+              </li>
+              <li>
+                <Link to="/purchase" className="nav-link">
+                  <FaShoppingBag /> Purchases
+                </Link>
+              </li>
               {user.isamember && (
                 <li>
-                  <Link to="/rentals" className="nav-link">
+                  <Link to="/Rentbooks" className="nav-link">
+                    <FaBook /> Books to Rent
+                  </Link>
+                </li>
+              )}
+              {user.isamember && (
+                <li>
+                  <Link to="/rental" className="nav-link">
                     <FaList /> Rentals
                   </Link>
                 </li>
               )}
             </>
           )}
+
+          {/* Guest Links */}
+          {!user && (
+            <>
+              <li>
+                <Link to="/books" className="nav-link">
+                  <FaBook /> Books
+                </Link>
+              </li>
+              <li>
+                <Link to="/authors" className="nav-link">
+                  <FaUsers /> Authors
+                </Link>
+              </li>
+            </>
+          )}
         </ul>
       </div>
 
-      {/* Profile Icon with Dropdown */}
-      <div className="profile-icon-container">
-        {!user &&(
-          <>
-            <a className="profile-icon" onClick={toggleDropdown}>
-              <i className="fas fa-user-circle"></i>
-            </a>
-            {isDropdownOpen && (
-              <div className="dropdown-menu">
-                <Link to="/login" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
-                  Login
-                </Link>
-                <Link to="/signup" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
-                  Signup
-                </Link>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-      </div>
+      {/* Profile Dropdown for Guests */}
+      {!user && (
+        <div className="profile-icon-container">
+          <button className="profile-icon" onClick={toggleDropdown}>
+            <i className="fas fa-user-circle"></i>
+          </button>
+          {isDropdownOpen && (
+            <div className="dropdown-menu">
+              <Link to="/login" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                Login
+              </Link>
+              <Link to="/signup" className="dropdown-item" onClick={() => setIsDropdownOpen(false)}>
+                Signup
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
     </nav>
   );
 };

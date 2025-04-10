@@ -1,36 +1,46 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useDispatch } from 'react-redux';
-import { setCredentials } from '../../features/auth/authSlice';
+import { useDispatch, useSelector } from 'react-redux';
+import { registerUser, resetRegisterStatus } from '../../features/auth/authSlice';
+import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../components/config/axiosSetup';
 import './SignUpForm.css';
 import Navbar from '../../components/Navbar/Navbar';
 
 const SignupForm = () => {
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm();
+  const { register, handleSubmit, formState: { errors }, watch } = useForm();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [birthdate, setBirthdate] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-
   const maxYear = new Date().getFullYear() - 7;
 
-  const onSubmit = useCallback(async (data) => {
-    if (birthdate) {
-      data.birthdate = birthdate;
-    } else {
-      data.birthdate = null;
-    }
+  const { registerStatus, registerError } = useSelector((state) => state.auth);
 
-    try {
-      const response = await axiosInstance.post('/users', data);
-      dispatch(setCredentials(response.data));
-      setSuccessMessage('Signup successful! Redirecting to login...');
-      setTimeout(() => window.location.href = '/login', 2000);
-    } catch (error) {
-      console.log(error.response?.data);
-      alert(error.response?.data?.error || 'Signup failed');
+  useEffect(() => {
+    if (registerStatus === 'succeeded') {
+      const timer = setTimeout(() => {
+        navigate('/login');
+        dispatch(resetRegisterStatus());
+      }, 2000);
+      return () => clearTimeout(timer);
     }
-  }, [birthdate, dispatch]);
+  }, [registerStatus, navigate, dispatch]);
+
+  const onSubmit = (data) => {
+    const payload = {
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      password_confirmation: data.confirmPassword,
+      cin: data.cin,
+      address: data.address || null,
+      tele: data.tele || null,
+      birthdate: birthdate || null // Make sure this matches the backend field name
+    };
+  
+    console.log('Registration payload:', payload); // Debug log
+    dispatch(registerUser(payload));
+  };
 
   const password = watch('password');
 
@@ -38,12 +48,16 @@ const SignupForm = () => {
     <>
       <Navbar />
       <div className="signup-container">
-        {successMessage ? (
-          <div className="success-message">{successMessage}</div>
+        {registerStatus === 'succeeded' ? (
+          <div className="success-message">Signup successful! Redirecting to login...</div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="signup-form">
             <h2>Create Your Account</h2>
             <p className="subtitle">Join us and explore a world of books!</p>
+
+            {registerStatus === 'failed' && (
+              <div className="error-message">{registerError}</div>
+            )}
 
             {/* Name & Email */}
             <div className="input-row">
@@ -130,7 +144,13 @@ const SignupForm = () => {
               </div>
             </div>
 
-            <button type="submit" className="signup-button">Sign Up</button>
+            <button 
+              type="submit" 
+              className="signup-button"
+              disabled={registerStatus === 'loading'}
+            >
+              {registerStatus === 'loading' ? 'Processing...' : 'Sign Up'}
+            </button>
           </form>
         )}
       </div>

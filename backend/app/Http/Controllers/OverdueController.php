@@ -1,87 +1,87 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Overdue;
-use App\Models\ActiveRental;
+use App\Models\Rental;
+use App\Models\BookToRent;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class OverdueController extends Controller
 {
-    // Get all overdue records
+    // Get all overdue records with relationships
     public function index()
     {
-        return Overdue::all();
+        return Overdue::with(['activeRental', 'book', 'user'])->get();
     }
 
-    // Get a specific overdue record
+    // Get a specific overdue record with relationships
     public function show($id)
     {
-        return Overdue::findOrFail($id);
+        return Overdue::with(['activeRental', 'book', 'user'])->findOrFail($id);
     }
 
-    // Create a new overdue record
-    public function store(Request $request)
-    {
-        // Create a new overdue record based on the request data
-        return Overdue::create($request->all());
-    }
-
-    // Update an overdue record
+    // Update an overdue record (primarily for marking as returned/paid)
     public function update(Request $request, $id)
     {
-        $overdue = Overdue::findOrFail($id);
-        $overdue->update($request->all());
-        return $overdue;
+        $validated = $request->validate([
+            'book_returned' => 'sometimes|boolean',
+            'penalty_paid' => 'sometimes|boolean',
+            'paid_date' => 'nullable|date|required_if:penalty_paid,true'
+        ]);
+
+        return DB::transaction(function () use ($id, $validated) {
+            $overdue = Overdue::findOrFail($id);
+            
+            // Handle book return if specified
+            if (isset($validated['book_returned']) && $validated['book_returned'] && !$overdue->book_returned) {
+                $this->handleBookReturn($overdue);
+            }
+
+            $overdue->update($validated);
+            return response()->json($overdue);
+        });
+    }
+
+    // Get all overdue records for a specific user
+    public function getUserOverdues($userId)
+    {
+        return Overdue::where('user_id', $userId)
+            ->with(['book', 'activeRental'])
+            ->get();
+    }
+
+    /**
+     * Handle book return process
+     */
+    protected function handleBookReturn(Overdue $overdue)
+    {
+        // Create rental history record
+        Rental::create([
+            'active_rental_id' => $overdue->active_rental_id,
+            'book_id' => $overdue->book_id,
+            'user_id' => $overdue->user_id,
+            'rental_date' => $overdue->original_due_date->subDays(14), // Assuming 14-day rental period
+            'due_date' => $overdue->original_due_date,
+            'return_date' => Carbon::now(),
+            'days_late' => $overdue->days_overdue
+        ]);
+
+        // Update book availability
+        BookToRent::where('id', $overdue->book_id)
+            ->update(['availability_status' => 'available']);
+
+        // Delete the overdue record
+        $overdue->delete();
     }
 
     // Delete an overdue record
     public function destroy($id)
     {
-        Overdue::destroy($id);
+        $overdue = Overdue::findOrFail($id);
+        $overdue->delete();
         return response()->noContent();
-    }
-
-    // Mark active rental as overdue and apply penalty
-    public function markAsOverdue($rentalId)
-    {
-        // Find the active rental by rental ID
-        $activeRental = ActiveRental::findOrFail($rentalId);
-
-        // Ensure rental status is 'pending' before making it overdue
-        if ($activeRental->status === 'pending') {
-            $activeRental->status = 'overdue';
-            $activeRental->save();
-
-            // Calculate penalty based on overdue days
-            $rentalDueDate = Carbon::parse($activeRental->due_date); // Assuming rental has a due_date field
-            $daysOverdue = Carbon::now()->diffInDays($rentalDueDate, false); // Get number of days overdue (negative if not overdue)
-
-            if ($daysOverdue > 0) {
-                // Example penalty calculation: $5 per day overdue
-                $penaltyAmount = $daysOverdue * 5;
-            } else {
-                // No penalty if the book is not overdue
-                $penaltyAmount = 0;
-            }
-
-            // Create an overdue record with penalty information
-            $overdueData = [
-                'rental_id' => $activeRental->rental_id,
-                'penalty_amount' => $penaltyAmount,
-                'due_date' => Carbon::now()->toDateString(), // The date when penalty was applied
-            ];
-
-            Overdue::create($overdueData);
-
-            return response()->json([
-                'message' => 'Book status updated to overdue and penalty applied.',
-                'overdue' => $overdueData
-            ], 200);
-        }
-
-        return response()->json([
-            'message' => 'The rental is not in "pending" status and cannot be marked as overdue.'
-        ], 400);
     }
 }

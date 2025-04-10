@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\BookPurchase;
-use App\Models\BookToSell;
 use App\Models\User;
+use App\Models\BookToSell;
+use App\Models\BookPurchase;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class BookPurchaseController extends Controller
@@ -15,13 +16,29 @@ class BookPurchaseController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
-    {
-        $user = Auth::user();  // Get the authenticated user
-        $purchases = BookPurchase::where('user_id', $user->id)->get();
 
-        return response()->json($purchases);
-    }
+     // app/Http/Controllers/BookPurchaseController.php
+
+        public function index()
+        {
+            // Fix the incorrect ->with() usage - it should be on the query builder, not the collection
+            return BookPurchase::with('book')->get();
+        }
+
+        public function getuserpurchases($userId)
+        {
+            $purchases = BookPurchase::with('book')
+                        ->where('user_id', $userId)
+                        ->get();
+
+            return response()->json($purchases);
+        }
+
+        public function show($id)
+        {
+            $purchase = BookPurchase::with('book')->findOrFail($id);
+            return response()->json($purchase);
+        }
 
     /**
      * Store a newly created book purchase in the database.
@@ -31,7 +48,8 @@ class BookPurchaseController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validatedData=$request->validate([
+            'user_id' => 'required|exists:users,id',
             'book_id' => 'required|exists:book_to_sell,id',
             'quantity' => 'required|integer|min:1',
             'price_per_unit' => 'required|numeric',
@@ -42,36 +60,23 @@ class BookPurchaseController extends Controller
         ]);
 
         // Calculate total price if not provided
-        if (!$request->has('total_price')) {
-            $total_price = $request->price_per_unit * $request->quantity;
-        }
+        $total_price = $request->total_price ?? ($request->price_per_unit * $request->quantity);
 
         $purchase = BookPurchase::create([
-            'book_id' => $request->book_id,
-            'user_id' => Auth::id(),
-            'quantity' => $request->quantity,
-            'price_per_unit' => $request->price_per_unit,
+            'user_id' => $validatedData['user_id'],
+            'book_id' => $validatedData['book_id'],
+            'quantity' => $validatedData['quantity'],
+            'price_per_unit' => $validatedData['price_per_unit'],
             'total_price' => $total_price,
-            'purchase_date' => $request->purchase_date,
-            'payment_method' => $request->payment_method,
-            'payment_status' => $request->payment_status,
-            'transaction_id' => $request->transaction_id ?? null,
+            'purchase_date' => $validatedData['purchase_date'],
+            'payment_method' => $validatedData['payment_method'],
+            'payment_status' => $validatedData['payment_status'],
+            'transaction_id' => $validatedData['transaction_id'] ?? null,
         ]);
 
         return response()->json($purchase, 201);
     }
 
-    /**
-     * Display the specified book purchase.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function show($id)
-    {
-        $purchase = BookPurchase::findOrFail($id);
-        return response()->json($purchase);
-    }
 
     /**
      * Update the specified book purchase in storage.

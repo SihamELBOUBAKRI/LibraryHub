@@ -52,7 +52,7 @@ class WishlistController extends Controller
         $wishlist = Wishlist::with('books')->where('user_id', $userId)->first();
 
         if (!$wishlist) {
-            return response()->json(['message' => 'Wishlist not found'], 404);
+            return response()->json(['message' => 'you donot have a wishlist yet'], 200);
         }
 
         return response()->json($wishlist, 200);

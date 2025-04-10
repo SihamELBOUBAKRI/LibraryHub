@@ -19,7 +19,8 @@ import overduesReducer from './features/overdues/overduesSlice';
 import purchasesReducer from './features/purchases/purchasesSlice';
 import rentalsReducer from './features/rentals/rentalsSlice';
 import transactionsReducer from './features/transactions/transactionsSlice';
-import active_rentalsReducer from './features/active_rentals/active_rentalsSlice';
+import activeRentalsReducer from './features/active_rentals/active_rentalsSlice';
+import bookReservationReducer from './features/reservations/bookReservationSlice';
 
 // Configuring the Redux Store
 const store = configureStore({
@@ -37,7 +38,8 @@ const store = configureStore({
     purchases: purchasesReducer,
     rentals: rentalsReducer,
     transactions: transactionsReducer,
-    active_rentals: active_rentalsReducer,
+    activeRentals: activeRentalsReducer,
+    reservations: bookReservationReducer,
   },
 });
 

@@ -1,91 +1,247 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\Order;
 use App\Models\Cart;
+use App\Models\Order;
+use App\Models\CartItem;
 use App\Models\BookToSell;
+use App\Models\Transaction;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class OrderController extends Controller
 {
-    // Get all orders
-    public function index()
-    {
-        return Order::with('books')->get(); // Eager loading books with the orders
-    }
-
-    // Get a specific order
-    public function show($id)
-    {
-        return Order::with('books')->findOrFail($id); // Eager loading books with the specific order
-    }
-
-    // Create a new order
     public function store(Request $request)
     {
-        // Assuming the user is authenticated, we can get the user ID from the auth system
-        $userId = auth()->id();
+        $validator = Validator::make($request->all(), [
+            'cart_id' => 'nullable|exists:carts,id',
+            'book_id' => 'nullable|exists:book_to_sell,id',
+            'quantity' => 'required_if:book_id,!=,null|integer|min:1',
+            'shipping_address' => 'required|string|max:255',
+            'payment_method' => 'required|string|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
+            'card_holder_name' => 'required_if:payment_method,Credit Card|string|max:255',
+            'card_last_four' => 'required_if:payment_method,Credit Card|string|size:4',
+            'expiration_date' => 'required_if:payment_method,Credit Card|string|max:7',
+            'notes' => 'nullable|string|max:500',
+        ]);
 
-        // Find the cart for the user
-        $cart = Cart::where('user_id', $userId)->first();
-
-        if (!$cart) {
-            return response()->json(['message' => 'Cart is empty'], 400);
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        // Start a database transaction to ensure consistency
+        $user = Auth::user();
+        $orders = [];
+        
         DB::beginTransaction();
 
         try {
-            // Create the order, assuming it contains necessary info like total_price
-            $order = Order::create([
-                'user_id' => $userId,
-                'total_price' => $request->total_price, // The total price passed in the request
-                'status' => 'Pending',
-                'payment_method' => $request->payment_method,
-                'shipping_address' => $request->shipping_address
-            ]);
+            // Generate random transaction ID and tracking number
+            $transactionId = 'TXN-' . strtoupper(uniqid());
+            $trackingNumber = 'TRK-' . strtoupper(substr(md5(uniqid()), 0, 10));
+            $expectedDeliveryDate = now()->addWeek()->toDateString();
 
-            // Attach books to the order
-            foreach ($cart->books as $book) {
-                $order->books()->attach($book->id, ['quantity' => $book->pivot->quantity]);
+            // Case 1: Order a single book
+            if ($request->filled('book_id')) {
+                $book = BookToSell::lockForUpdate()->findOrFail($request->book_id);
+                
+                // Check stock availability
+                if ($book->stock < $request->quantity) {
+                    throw new \Exception("Not enough stock available for book: {$book->title}. Available: {$book->stock}, Requested: {$request->quantity}");
+                }
+
+                $order = Order::create([
+                    'user_id' => $user->id,
+                    'book_id' => $book->id,
+                    'quantity' => $request->quantity,
+                    'book_price' => $book->price,
+                    'total_price' => $book->price * $request->quantity,
+                    'shipping_address' => $request->shipping_address,
+                    'payment_method' => $request->payment_method,
+                    'card_holder_name' => $request->card_holder_name ?? null,
+                    'card_last_four' => $request->card_last_four ?? null,
+                    'expiration_date' => $request->expiration_date ?? null,
+                    'status' => 'Pending',
+                    'payment_status' => 'Pending',
+                    'notes' => $request->notes ?? null,
+                    'transaction_id' => $transactionId,
+                    'shipping_tracking_number' => $trackingNumber,
+                    'expected_delivery_date' => $expectedDeliveryDate
+                ]);
+                $order->books()->attach($book->id, [
+                    'quantity' => $request->quantity,
+                    'book_price' => $book->price
+                ]);
+                    
+
+                // Decrement stock
+                $book->decrement('stock', $request->quantity);
+
+                // Create transaction record
+                $this->createTransaction($user->id, $order->total_price, $request->payment_method, $transactionId, $order->id);
+
+                $orders[] = $order;
+            }
+            // Case 2: Convert cart items to individual book orders
+            elseif ($request->filled('cart_id')) {
+                $cart = Cart::with(['items.book' => function($query) {
+                    $query->lockForUpdate();
+                }])->findOrFail($request->cart_id);
+
+                // First check all items have sufficient stock
+                foreach ($cart->items as $item) {
+                    if ($item->book->stock < $item->quantity) {
+                        throw new \Exception("Not enough stock available for book: {$item->book->title}. Available: {$item->book->stock}, Requested: {$item->quantity}");
+                    }
+                }
+
+                // Process each item
+                foreach ($cart->items as $item) {
+                    $order = Order::create([
+                        'user_id' => $user->id,
+                        'book_id' => $item->book_id,
+                        'quantity' => $item->quantity,
+                        'book_price' => $item->book->price,
+                        'total_price' => $item->quantity * $item->book->price,
+                        'shipping_address' => $request->shipping_address,
+                        'payment_method' => $request->payment_method,
+                        'card_holder_name' => $request->card_holder_name ?? null,
+                        'card_last_four' => $request->card_last_four ?? null,
+                        'expiration_date' => $request->expiration_date ?? null,
+                        'status' => 'Pending',
+                        'payment_status' => 'Pending',
+                        'notes' => $request->notes ?? null,
+                        'transaction_id' => $transactionId,
+                        'shipping_tracking_number' => $trackingNumber,
+                        'expected_delivery_date' => $expectedDeliveryDate
+                    ]);
+                    $order->books()->attach($item->book_id, [
+                        'quantity' => $item->quantity,
+                        'book_price' => $item->book->price
+                    ]);
+                    // Decrement stock
+                    $item->book->decrement('stock', $item->quantity);
+
+                    // Create transaction record
+                    $this->createTransaction($user->id, $order->total_price, $request->payment_method, $transactionId, $order->id);
+
+                    $orders[] = $order;
+                }
+
+                // Clear the cart after converting to orders
+                $cart->items()->delete();
+                $cart->delete();
+            } else {
+                return response()->json(['message' => 'Either book_id or cart_id must be provided'], 400);
             }
 
-            // Optionally, clear the cart after the order is created
-            $cart->books()->detach();
-
-            // Commit the transaction
             DB::commit();
 
-            return response()->json($order, 201);
+            return response()->json([
+                'message' => count($orders) > 1 ? 'Orders placed successfully!' : 'Order placed successfully!',
+                'data' => $orders
+            ], 201);
 
         } catch (\Exception $e) {
-            // Rollback in case of error
             DB::rollBack();
-            return response()->json(['message' => 'Error creating order', 'error' => $e->getMessage()], 500);
+            return response()->json([
+                'message' => 'Failed to process order',
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
-    // Update an order
-    public function update(Request $request, $id)
+    /**
+     * Helper method to create transaction record
+     */
+    private function createTransaction($userId, $amount, $paymentMethod, $transactionId, $orderId)
     {
-        $order = Order::findOrFail($id);
-
-        // Optionally, update the order status or any other fields
-        $order->update($request->all());
-
-        return response()->json($order);
+        return Transaction::create([
+            'user_id' => $userId,
+            'amount' => $amount,
+            'payment_method' => $paymentMethod,
+            'transaction_id' => $transactionId,
+            'transaction_type' => 'Order',
+            'payment_status' => 'Completed',
+            'order_id' => $orderId,
+            'membership_card_id' => null
+        ]);
     }
 
-    // Delete an order
+    public function index()
+{
+    $orders = Order::with(['user', 'books'])->get();
+    return response()->json($orders);
+}
+    
+    public function getUserOrders()
+    {
+        $user = Auth::user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+    
+        $orders = Order::with(['books' => function($query) {
+            $query->select('book_to_sell.*', 'order_book.quantity as pivot_quantity', 'order_book.book_price as pivot_book_price');
+        }])->where('user_id', $user->id)->get();
+    
+        return response()->json($orders);
+    }
+    
+    public function show($id)
+    {
+        $order = Order::with(['user', 'books' => function($query) {
+            $query->select('book_to_sell.*', 'order_book.quantity as pivot_quantity', 'order_book.book_price as pivot_book_price');
+        }])->find($id);
+        
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+    
+        return response()->json(['data' => $order]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $order = Order::find($id);
+
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'sometimes|string|in:Pending,Paid,Shipped,Cancelled',
+            'payment_status' => 'sometimes|string|in:Pending,Completed,Failed,Refunded',
+            'transaction_id' => 'sometimes|nullable|string|max:255',
+            'shipping_tracking_number' => 'sometimes|nullable|string|max:255',
+            'expected_delivery_date' => 'sometimes|nullable|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        $order->update($validator->validated());
+
+        return response()->json([
+            'message' => 'Order updated successfully!',
+            'data' => $order->fresh()
+        ]);
+    }
+
     public function destroy($id)
     {
-        $order = Order::findOrFail($id);
+        $order = Order::find($id);
+        
+        if (!$order) {
+            return response()->json(['message' => 'Order not found'], 404);
+        }
 
-        // Optionally, you could clean up any related data like updating stock or notifying users
         $order->delete();
 
-        return response()->noContent();
+        return response()->json(['message' => 'Order deleted successfully']);
     }
 }

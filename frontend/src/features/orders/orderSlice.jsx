@@ -1,51 +1,71 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../components/config/axiosSetup";
 
-// Async Thunk to Fetch Orders
-export const fetchOrders = createAsyncThunk("orders/fetchOrders", async () => {
-  const response = await axiosInstance.get("/orders");
-  return response.data;
-});
-
-// Async Thunk to Create a New Order
-export const createOrder = createAsyncThunk("orders/createOrder", async (orderData) => {
-  const response = await axiosInstance.post("/orders", orderData);
-  return response.data;
-});
-
-// Async Thunk to Update an Existing Order
-export const updateOrder = createAsyncThunk("orders/updateOrder", async ({ id, updatedData }) => {
-  const response = await axiosInstance.put(`/orders/${id}`, updatedData);
-  return response.data;
-});
-
-// Async Thunk to Delete an Order
-export const deleteOrder = createAsyncThunk("orders/deleteOrder", async (id) => {
-  await axiosInstance.delete(`/orders/${id}`);
-  return id;
-});
-
-// Async Thunk to Create a Transaction when an Order is Paid
-export const createTransactionForOrder = createAsyncThunk(
-  "orders/createTransactionForOrder",
-  async (orderId, { dispatch, getState }) => {
-    const order = getState().orders.orders.find(order => order.id === orderId);
-
-    if (!order) {
-      throw new Error("Order not found");
-    }
-
-    // Prepare transaction data (this assumes you're sending order details to create a transaction)
-    const transactionData = {
-      order_id: order.id,
-      amount: order.total_price, // Assuming the total price is the transaction amount
-      payment_method: "Credit Card", // Example, should come from the frontend form
-      status: "Completed", // Example, change based on actual payment status
-    };
-
-    // Make API request to create the transaction
-    const response = await axiosInstance.post("transactions", transactionData);
+// Async Thunks
+export const fetchOrders = createAsyncThunk(
+  "orders/fetchOrders", 
+  async () => {
+    const response = await axiosInstance.get("/orders");
     return response.data;
+  }
+);
+
+export const fetchUserOrders = createAsyncThunk(
+  "orders/fetchUserOrders",
+  async (userId) => {
+    const response = await axiosInstance.get(`/users/${userId}/orders`);
+    return response.data;
+  }
+);
+
+export const createOrder = createAsyncThunk(
+  "orders/createOrder",
+  async (orderData, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post("/orders", orderData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+export const updateOrder = createAsyncThunk(
+  "orders/updateOrder",
+  async ({ id, updatedData }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/orders/${id}`, updatedData);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+export const deleteOrder = createAsyncThunk(
+  "orders/deleteOrder",
+  async (id, { rejectWithValue }) => {
+    try {
+      await axiosInstance.delete(`/orders/${id}`);
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
+export const createTransactionForOrder = createAsyncThunk(
+  "orders/createTransaction",
+  async ({ orderId, transactionData }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.post(
+        `/orders/${orderId}/transactions`,
+        transactionData
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
   }
 );
 
@@ -53,15 +73,26 @@ const ordersSlice = createSlice({
   name: "orders",
   initialState: {
     orders: [],
+    userOrders: [],
     loading: false,
     error: null,
+    currentOrder: null,
+    transactionStatus: 'idle'
   },
-  reducers: {},
+  reducers: {
+    setCurrentOrder: (state, action) => {
+      state.currentOrder = action.payload;
+    },
+    clearOrderError: (state) => {
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
-      // Handle fetching orders
+      // Fetch Orders
       .addCase(fetchOrders.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(fetchOrders.fulfilled, (state, action) => {
         state.loading = false;
@@ -69,68 +100,104 @@ const ordersSlice = createSlice({
       })
       .addCase(fetchOrders.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
-      // Handle creating an order
+      // Fetch User Orders
+      .addCase(fetchUserOrders.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUserOrders.fulfilled, (state, action) => {
+        state.loading = false;
+        state.userOrders = action.payload;
+      })
+      .addCase(fetchUserOrders.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
+      })
+
+      // Create Order
       .addCase(createOrder.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(createOrder.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders.push(action.payload); // Add new order to the list
+        state.orders.push(action.payload);
+        state.currentOrder = action.payload;
       })
       .addCase(createOrder.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
-      // Handle updating an order
+      // Update Order
       .addCase(updateOrder.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(updateOrder.fulfilled, (state, action) => {
         state.loading = false;
-        const orderIndex = state.orders.findIndex(order => order.id === action.payload.id);
-        if (orderIndex !== -1) {
-          state.orders[orderIndex] = action.payload; // Update the order in the state
+        const index = state.orders.findIndex(
+          (order) => order.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.orders[index] = action.payload;
+        }
+        if (state.currentOrder?.id === action.payload.id) {
+          state.currentOrder = action.payload;
         }
       })
       .addCase(updateOrder.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
-      // Handle deleting an order
+      // Delete Order
       .addCase(deleteOrder.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(deleteOrder.fulfilled, (state, action) => {
         state.loading = false;
-        state.orders = state.orders.filter(order => order.id !== action.payload); // Remove the order
+        state.orders = state.orders.filter(
+          (order) => order.id !== action.payload
+        );
+        if (state.currentOrder?.id === action.payload) {
+          state.currentOrder = null;
+        }
       })
       .addCase(deleteOrder.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        state.error = action.payload || action.error.message;
       })
 
-      // Handle creating a transaction when an order is placed and paid
+      // Create Transaction
       .addCase(createTransactionForOrder.pending, (state) => {
-        state.loading = true;
+        state.transactionStatus = 'processing';
       })
       .addCase(createTransactionForOrder.fulfilled, (state, action) => {
-        state.loading = false;
-        // Optionally update the order's status to 'Paid' in your state or database
-        const orderIndex = state.orders.findIndex(order => order.id === action.payload.order_id);
+        state.transactionStatus = 'succeeded';
+        const orderIndex = state.orders.findIndex(
+          (order) => order.id === action.payload.order_id
+        );
         if (orderIndex !== -1) {
-          state.orders[orderIndex].status = 'Paid'; // Update order status here if necessary
+          state.orders[orderIndex].status = 'Paid';
+          state.orders[orderIndex].payment_status = 'Completed';
+        }
+        if (state.currentOrder?.id === action.payload.order_id) {
+          state.currentOrder.status = 'Paid';
+          state.currentOrder.payment_status = 'Completed';
         }
       })
       .addCase(createTransactionForOrder.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message;
+        state.transactionStatus = 'failed';
+        state.error = action.payload || action.error.message;
       });
   },
 });
+
+export const { setCurrentOrder, clearOrderError } = ordersSlice.actions;
 
 export default ordersSlice.reducer;

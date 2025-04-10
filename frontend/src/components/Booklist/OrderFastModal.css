@@ -1,0 +1,237 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+.order-fast-modal {
+    font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  }
+  
+  .order-fast-modal .modal-content {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    background-color: #f8f8f8;
+  }
+  
+  .order-fast-modal .modal-dialog {
+    max-width: 650px;
+  }
+  
+  .order-fast-modal .modal-header {
+    background-color: #ffffff;
+    border-bottom: 2px solid #e0e0e0;
+    border-radius: 12px 12px 0 0 !important;
+    padding: 1.5rem;
+  }
+  
+  .order-fast-modal .modal-title {
+    font-weight: 700;
+    color: #c50033;
+    font-size: 1.5rem;
+    letter-spacing: -0.5px;
+  }
+  
+  .order-fast-modal .modal-body {
+    padding: 2rem;
+    background-color: #f8f8f8;
+  }
+  
+  .order-fast-modal .form-label {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+  
+  .order-fast-modal .form-control,
+  .order-fast-modal .form-select {
+    border-radius: 8px;
+    border: 2px solid #e0e0e0;
+    padding: 3px;
+    font-size: 1rem;
+    background-color: #fff;
+    transition: all 0.3s ease;
+  }
+  
+  .order-fast-modal .form-control:focus,
+  .order-fast-modal .form-select:focus {
+    border-color: #c50033;
+    box-shadow: 0 0 0 0.25rem rgba(197, 0, 51, 0.15);
+  }
+  
+  .order-fast-modal .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    padding: 0.75rem 1.75rem;
+    font-weight: 600;
+  }
+  
+  .order-fast-modal .btn-primary {
+    background-color: #c50033;
+    border-color: #c50033;
+    font-weight: 600;
+    padding: 0.75rem 1.75rem;
+    letter-spacing: 0.5px;
+  }
+  
+  .order-fast-modal .btn {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+  }
+  
+  .order-fast-modal .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .order-fast-modal .btn-primary:hover {
+    background-color: #a3002a;
+    border-color: #a3002a;
+  }
+  
+  .order-fast-modal .payment-details-section {
+    background-color: #ffffff;
+    padding: 1.5rem;
+    border-radius: 10px;
+    margin-bottom: 1.5rem;
+    border: 2px solid #f0f0f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+  
+  .order-fast-modal .notes-textarea {
+    min-height: 100px;
+    resize: vertical;
+  }
+  
+  .order-fast-modal .modal-footer {
+    background-color: #ffffff;
+    border-top: 2px solid #e0e0e0;
+    border-radius: 0 0 12px 12px !important;
+    padding: 1.5rem;
+  }
+  
+  /* Quantity input specific styling */
+  .order-fast-modal .quantity-input {
+    max-width: 120px;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .order-fast-modal .modal-dialog {
+      margin: 1rem auto;
+    }
+    
+    .order-fast-modal .modal-body {
+      padding: 1.5rem;
+    }
+  }
+  
+  
+  
+  .reservation-informations .file {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
+    margin-bottom: 25px;
+    background-color: #f9f9f9;
+    width: 99%;
+  }
+  
+  .reservation-informations .card-body {
+    padding: 25px;
+  }
+  
+  .reservation-informations .text-file {
+    color: #2c3e50;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 25px;
+    text-align: center;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+  }
+  
+  .reservation-informations .row {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0 -10px;
+  }
+  
+  .reservation-informations .infor {
+    flex: 1;
+    min-width: 250px;
+    padding: 20px;
+    margin: 10px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.05);
+    
+  }
+  
+  .reservation-informations .infor h5 {
+    color: #3498db;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #eee;
+  }
+  
+  .reservation-informations .infor p {
+    margin-bottom: 10px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  
+  .reservation-informations .infor strong {
+    color: #2c3e50;
+    font-weight: 500;
+    display: inline-block;
+    min-width: 140px;
+  }
+  
+  .reservation-informations .text-success {
+    color: #27ae60;
+    font-weight: 500;
+  }
+  
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .reserve-fast-modal .modal-body {
+      padding: 20px;
+    }
+    
+    .reservation-informations .row {
+      flex-direction: column;
+    }
+    
+    .reservation-informations .infor {
+      margin: 0 0 15px 0;
+    }
+    
+    .reservation-informations .text-file {
+      font-size: 1.3rem;
+    }
+  }
+  
+  @media (max-width: 576px) {
+    .reserve-fast-modal .modal-header {
+      padding: 15px;
+    }
+    
+    .reserve-fast-modal .modal-title {
+      font-size: 1.2rem;
+    }
+    
+    .reservation-informations .card-body {
+      padding: 15px;
+    }
+    
+    .reservation-informations .infor {
+      min-width: 100%;
+    }
+    
+    .reservation-informations .infor strong {
+      min-width: 120px;
+    }
+  }

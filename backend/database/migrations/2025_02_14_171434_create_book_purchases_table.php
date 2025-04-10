@@ -20,8 +20,8 @@ return new class extends Migration
             $table->integer('quantity')->default(1); // Number of copies purchased
             $table->decimal('price_per_unit', 8, 2); // Price per book
             $table->decimal('total_price', 10, 2); // Total price for the purchase
-            $table->date('purchase_date'); // Date of purchase
-            $table->string('payment_method'); // Payment method (e.g., credit card, cash)
+            $table->date('purchase_date')->default(DB::raw('CURRENT_DATE')); // Date of purchase
+            $table->enum('payment_method', ['Credit Card', 'PayPal', 'Bank Transfer', 'Cash on Delivery'])->default('Credit Card '); // Payment method (e.g., credit card, cash)
             $table->enum('payment_status', ['pending', 'completed', 'failed'])->default('pending'); // Payment status
             $table->string('transaction_id')->nullable(); // Unique transaction ID
             $table->timestamps(); // created_at and updated_at

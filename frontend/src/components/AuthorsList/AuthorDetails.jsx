@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { fetchAuthorDetails } from "../../features/authors/authorsSlice";
 import { fetchBooksToSell } from "../../features/book_to_sell/book_to_sellSlice";
 import { addToCart } from "../../features/cart/cartSlice"; // Import addToCart action
-import { FaShoppingCart, FaHeart } from 'react-icons/fa'; // Import icons
+import { FaShoppingCart, FaHeart,FaEdit } from 'react-icons/fa'; // Import icons
 import './AuthorDetails.css'; // Import the CSS for styling
 
 const AuthorDetails = () => {
@@ -16,13 +16,13 @@ const AuthorDetails = () => {
   const [addedToCart, setAddedToCart] = useState(false);
   const navigate=useNavigate();
    const { user } = useSelector((state) => state.auth);
+   
 
   // Fetch author details and books when the component mounts
   useEffect(() => {
     dispatch(fetchAuthorDetails(authorId));
     dispatch(fetchBooksToSell());
   }, [dispatch, authorId]);
-  console.log(books);
   
 
   // Filter books by author ID
@@ -62,6 +62,12 @@ const AuthorDetails = () => {
     // You can implement the logic for adding to wishlist here
   };
 
+
+   // Handle edit author action
+   const handleEditAuthor = () => {
+    navigate(`/edit-author/${authorId}`); // Navigate to the Edit Author page
+  };
+
   return (
     <div className="author-details">
       <div className="author-info">
@@ -74,6 +80,12 @@ const AuthorDetails = () => {
           <h2>{author.name}</h2>
           <p>{author.bio}</p>
         </div>
+
+
+        {/* Show edit icon only if the user is an admin */}
+        {user?.role === 'admin' && (
+          <FaEdit className="edit-icon" onClick={handleEditAuthor} />
+        )}
       </div>
 
       <div className="books-list">

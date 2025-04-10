@@ -1,104 +1,271 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\Transaction;
 use App\Models\Order;
+use App\Models\MembershipCard;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TransactionController extends Controller
 {
-    // Get all transactions
-    public function index()
-    {
-        return Transaction::all();
-    }
-
-    // Get a specific transaction
-    public function show($id)
-    {
-        return Transaction::findOrFail($id);
-    }
-
-    // Create a new transaction for an order
+    /**
+     * Store a new transaction (either for orders or membership).
+     */
     public function store(Request $request)
     {
-        // Validate incoming request data for transaction creation
-        $validatedData = $request->validate([
-            'order_id' => 'required|exists:orders,id',
-            'amount' => 'required|numeric',
-            'payment_method' => 'required|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
-            'status' => 'required|in:Pending,Completed,Failed,Refunded', // Payment status
-        ]);
-
-        // Get the order related to the transaction
-        $order = Order::findOrFail($validatedData['order_id']);
-        
-        // Check if the order's total matches the transaction amount
-        if ($order->total_price !== $validatedData['amount']) {
-            return response()->json(['message' => 'Transaction amount does not match the order total'], 400);
-        }
-
-        // Start a database transaction to ensure consistency
         DB::beginTransaction();
-
+        
         try {
-            // Create the transaction
-            $transaction = Transaction::create([
-                'order_id' => $validatedData['order_id'],
-                'user_id' => $order->user_id,
-                'amount' => $validatedData['amount'],
-                'payment_method' => $validatedData['payment_method'],
-                'status' => $validatedData['status'],
-                'transaction_date' => now(), // Store the current timestamp as the transaction date
+            // Validate incoming data
+            $validated = $request->validate([
+                'user_id' => 'required|exists:users,id',
+                'amount' => 'required|numeric|min:0',
+                'payment_method' => 'required|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery,Membership Payment',
+                'transaction_id' => 'nullable|string',
+                'transaction_type' => 'required|in:Order,Membership',
+                'order_id' => 'nullable|exists:orders,id',
+                'membership_card_id' => 'nullable|exists:membership_cards,id',
             ]);
 
-            // Optionally, you can update the order status after payment
-            if ($validatedData['status'] === 'Completed') {
-                $order->status = 'Paid';
-                $order->save();
+            // Validate the specific conditions for 'Order' or 'Membership' transaction types
+            if ($validated['transaction_type'] === 'Order' && !$validated['order_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order ID is required for Order transactions'
+                ], 400);
             }
 
-            // Commit the transaction
+            if ($validated['transaction_type'] === 'Membership' && !$validated['membership_card_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Membership Card ID is required for Membership transactions'
+                ], 400);
+            }
+
+            // Create the transaction
+            $transaction = Transaction::create([
+                'user_id' => $validated['user_id'],
+                'amount' => $validated['amount'],
+                'payment_method' => $validated['payment_method'],
+                'transaction_id' => $validated['transaction_id'],
+                'transaction_type' => $validated['transaction_type'],
+                'payment_status' => 'Completed', // You can update this after payment confirmation
+                'order_id' => $validated['transaction_type'] === 'Order' ? $validated['order_id'] : null,
+                'membership_card_id' => $validated['transaction_type'] === 'Membership' ? $validated['membership_card_id'] : null,
+            ]);
+
             DB::commit();
-
-            return response()->json($transaction, 201); // Return the created transaction with a 201 status
-
+    
+            return response()->json([
+                'success' => true,
+                'data' => $transaction
+            ], 201);
+    
         } catch (\Exception $e) {
-            // Rollback in case of error
             DB::rollBack();
-            return response()->json(['message' => 'Error creating transaction', 'error' => $e->getMessage()], 500);
+            Log::error('Transaction store error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to store transaction: ' . $e->getMessage()
+            ], 500);
         }
     }
 
-    // Update a transaction (typically to update payment status or other details)
-    public function update(Request $request, $id)
+    /**
+     * Update the transaction status after payment processing.
+     */
+    public function updateStatus(Request $request, $id)
     {
-        // Validate the incoming request data
-        $validatedData = $request->validate([
-            'amount' => 'nullable|numeric',
-            'payment_method' => 'nullable|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
-            'status' => 'nullable|in:Pending,Completed,Failed,Refunded',
+        DB::beginTransaction();
+        
+        try {
+            // Validate incoming data
+            $validated = $request->validate([
+                'payment_status' => 'required|in:Pending,Completed,Failed',
+            ]);
+
+            // Find the transaction
+            $transaction = Transaction::findOrFail($id);
+
+            // Update payment status
+            $transaction->payment_status = $validated['payment_status'];
+            $transaction->save();
+
+            // Optionally, update related models based on payment status (e.g., marking the order or membership as paid)
+
+            DB::commit();
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'Transaction status updated successfully',
+                'data' => $transaction
+            ]);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Transaction update status error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update transaction status: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Display a listing of transactions.
+     */
+    public function index(Request $request)
+    {
+        try {
+            $query = Transaction::with(['user', 'order', 'membershipCard']);
+
+            // Apply filters if provided
+            if ($request->has('user_id')) {
+                $query->where('user_id', $request->user_id);
+            }
+            if ($request->has('transaction_type')) {
+                $query->where('transaction_type', $request->transaction_type);
+            }
+            if ($request->has('payment_status')) {
+                $query->where('payment_status', $request->payment_status);
+            }
+
+            $transactions = $query->latest()->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $transactions
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Transaction index error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve transactions'
+            ], 500);
+        }
+    }
+    /**
+ * Update a specific transaction (for example, update payment method, amount, etc.).
+ */
+public function update(Request $request, $id)
+{
+    DB::beginTransaction();
+
+    try {
+        // Validate incoming data
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0',
+            'payment_method' => 'required|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
+            'transaction_id' => 'nullable|string',
         ]);
 
-        // Find and update the transaction
+        // Find the transaction
         $transaction = Transaction::findOrFail($id);
-        $transaction->update($validatedData);
-        return response()->json($transaction);
+
+        // Update the transaction fields
+        $transaction->amount = $validated['amount'];
+        $transaction->payment_method = $validated['payment_method'];
+        $transaction->transaction_id = $validated['transaction_id'] ?? $transaction->transaction_id; // Optional
+
+        $transaction->save();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Transaction updated successfully',
+            'data' => $transaction
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Transaction update error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to update transaction: ' . $e->getMessage()
+        ], 500);
     }
+}
+/**
+ * Delete a transaction.
+ */
+public function destroy($id)
+{
+    DB::beginTransaction();
 
-    // Delete a transaction
-    public function destroy($id)
-    {
+    try {
+        // Find the transaction
         $transaction = Transaction::findOrFail($id);
 
-        // If the transaction is associated with a paid order, you may need to handle it differently
-        // For instance, not deleting a completed transaction
-        if ($transaction->status === 'Completed') {
-            return response()->json(['message' => 'Cannot delete a completed transaction'], 400);
-        }
-
+        // Delete the transaction
         $transaction->delete();
-        return response()->noContent();
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Transaction deleted successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Transaction delete error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to delete transaction: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+public function getUserTransactions($userId)
+{
+    try {
+        $transactions = Transaction::where('user_id', $userId)
+            ->with(['order', 'membershipCard'])
+            ->latest()
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $transactions
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('getUserTransactions error: ' . $e->getMessage());
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to retrieve user transactions'
+        ], 500);
+    }
+}
+
+
+
+
+    /**
+     * Display the specified transaction.
+     */
+    public function show($id)
+    {
+        try {
+            $transaction = Transaction::with(['user', 'order', 'membershipCard'])->findOrFail($id);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $transaction
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Transaction show error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Transaction not found'
+            ], 404);
+        }
     }
 }

@@ -20,8 +20,36 @@ class UserController extends Controller
             return response()->json(['error' => 'Failed to fetch users: ' . $e->getMessage()], 500);
         }
     }
+    public function updateProfile(Request $request)
+{
+    $user = Auth::user(); // Get the authenticated user
 
+    $validator = Validator::make($request->all(), [
+        'name' => 'sometimes|string|max:255',
+        'email' => 'sometimes|string|email|max:255|unique:users,email,' . $user->id,
+        'address' => 'nullable|string|max:255',
+        'tele' => 'nullable|string|max:20',
+        'cin' => 'sometimes|string|max:20|unique:users,cin,' . $user->id,
+        'birthyear' => 'nullable|date_format:Y-m-d',
+    ]);
 
+    if ($validator->fails()) {
+        return response()->json(['error' => $validator->errors()], 400);
+    }
+
+    try {
+        $validatedData = $validator->validated();
+        
+        // Prevent updates to role and isamember
+        unset($validatedData['role'], $validatedData['isamember']);
+
+        $user->update($validatedData);
+
+        return response()->json(['message' => 'Profile updated successfully', 'user' => $user]);
+    } catch (\Exception $e) {
+        return response()->json(['error' => 'Failed to update profile: ' . $e->getMessage()], 500);
+    }
+}
 public function login(Request $request)
 {
     $request->validate([
@@ -47,30 +75,67 @@ public function login(Request $request)
 
 public function register(Request $request)
 {
-    $request->validate([
+    $validatedData = $request->validate([
         'name' => 'required|string|max:255',
         'email' => 'required|email|unique:users,email',
         'password' => 'required|string|min:8|confirmed',
-        'cin' => 'required|string|max:20|unique:users', // Add validation for 'cin'
-        'address' => 'nullable|string|max:255', // Optional
-        'tele' => 'nullable|string|max:20', // Optional
-        'birthyear' => 'nullable|date_format:Y-m-d', // Optional
+        'cin' => 'required|string|max:20|unique:users',
+        'address' => 'nullable|string|max:255',
+        'tele' => 'nullable|string|max:20',
+        'birthdate' => 'nullable|date_format:Y-m-d', // Changed from birthyear to birthdate
     ]);
 
-    $user = User::create([
-        'name' => $request->name,
-        'email' => $request->email,
-        'password' => Hash::make($request->password),
-        'cin' => $request->cin, // Include 'cin'
-        'address' => $request->address, // Include 'address'
-        'tele' => $request->tele, // Include 'tele'
-        'birthyear' => $request->birthyear, // Include 'birthyear'
-        'role' => 'customer', // Default role
-        'isamember' => false, // Default value
-    ]);
+    try {
+        $user = User::create([
+            'name' => $validatedData['name'],
+            'email' => $validatedData['email'],
+            'password' => Hash::make($validatedData['password']),
+            'cin' => $validatedData['cin'],
+            'address' => $validatedData['address'] ?? null,
+            'tele' => $validatedData['tele'] ?? null,
+            'birthyear' => $validatedData['birthdate'] ?? null, // Map birthdate to birthyear
+            'role' => 'customer',
+            'isamember' => false,
+        ]);
 
-    return response()->json($user, 201);
+        return response()->json([
+            'status' => true,
+            'message' => 'User created successfully',
+            'user' => $user,
+            'token' => $user->createToken('authToken')->plainTextToken
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status' => false,
+            'message' => 'User registration failed',
+            'error' => $e->getMessage()
+        ], 500);
+    }
 }
+
+
+public function changePassword(Request $request)
+{
+    $request->validate([
+        'current_password' => 'required',
+        'new_password' => 'required|min:8|confirmed', // 'new_password_confirmation' required
+    ]);
+
+    $user = Auth::user(); // Get authenticated user
+
+    // Check if the current password matches
+    if (!Hash::check($request->current_password, $user->password)) {
+        return response()->json(['error' => 'Current password is incorrect'], 400);
+    }
+
+    // Update password
+    $user->password = Hash::make($request->new_password);
+    $user->save();
+
+    return response()->json(['message' => 'Password changed successfully']);
+}
+
 
 public function logout(Request $request)
 {
@@ -104,7 +169,7 @@ public function logout(Request $request)
         ]);
     
         if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()], 400);
+            return response()->json($validator->errors(), 400);
         }
     
         try {
@@ -175,4 +240,48 @@ public function logout(Request $request)
 {
     return response()->json($request->user());
 }
+
+
+public function verifyPassword(Request $request)
+{
+    // Get the currently authenticated user
+    $user = auth()->user();
+
+    // Get the password input from the request
+    $password = $request->input('password');
+
+    // Check if the provided password matches the stored (hashed) password
+    if (Hash::check($password, $user->password)) {
+        return response()->json(['success' => true]);
+    }
+
+    // If the password doesn't match, return an error response
+    return response()->json(['success' => false, 'message' => 'Incorrect password']);
+}
+
+public function deleteAccount(Request $request)
+{
+    // First, verify the user's password
+    $password = $request->input('password');
+    $user = auth()->user();
+
+    // Check if the password is correct
+    if (!Hash::check($password, $user->password)) {
+        return response()->json(['success' => false, 'message' => 'Incorrect password'], 400);
+    }
+
+    // If the password matches, proceed to delete the account
+    try {
+        // Delete the user record
+        $user->delete();
+
+        // Optionally, log the user out by deleting their tokens
+        $request->user()->tokens()->delete();
+
+        return response()->json(['success' => true, 'message' => 'Account deleted successfully']);
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'error' => 'Failed to delete account: ' . $e->getMessage()], 500);
+    }
+}
+
 }

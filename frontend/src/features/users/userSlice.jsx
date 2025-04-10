@@ -2,43 +2,53 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from '../../components/config/axiosSetup';
 
 // Async Thunk to Fetch Users
-export const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
-  const response = await axiosInstance.get("/api/users");
+const fetchUsers = createAsyncThunk("users/fetchUsers", async () => {
+  const response = await axiosInstance.get("/users");
   return response.data;
 });
 
-// Async Thunk to Add to Cart
-export const addToCart = createAsyncThunk("users/addToCart", async (bookId, { getState }) => {
-  const { user } = getState().users; // Access the user from the state
-  if (!user) {
-    throw new Error("User not authenticated");
+const addUser = createAsyncThunk("users/addUser", async (userData, { rejectWithValue }) => {
+  try {
+    const response = await axiosInstance.post("/users", userData); // Matches your store method route
+    return response.data;
+  } catch (error) {
+    // Handle Laravel validation errors
+    if (error.response?.status === 422) {
+      return rejectWithValue(error.response.data.errors);
+    }
+    return rejectWithValue(error.response?.data || error.message);
   }
-  const response = await axiosInstance.post(`/api/users/${user.id}/cart`, { bookId });
-  return response.data;
 });
 
-// Async Thunk to Add to Wishlist
-export const addToWishlist = createAsyncThunk("users/addToWishlist", async (bookId, { getState }) => {
-  const { user } = getState().users; // Access the user from the state
-  if (!user) {
-    throw new Error("User not authenticated");
+// Async Thunk to Edit Logged-in User Profile
+const editProfile = createAsyncThunk("users/editProfile", async (userData) => {
+  const response = await axiosInstance.put("/user/profile", userData);
+  return response.data; // Return the updated user data to update the state
+});
+
+
+// Async Thunk to Delete User
+const deleteUser = createAsyncThunk("users/deleteUser", async (userId) => {
+  await axiosInstance.delete(`/users/${userId}`);
+  return userId; // Return the deleted user ID to update the state
+});
+
+const updateUser = createAsyncThunk("users/updateUser", async ({ userId, userData }) => {
+  const response = await axiosInstance.put(`/users/${userId}`, userData);
+  return response.data; // Return the updated user data to update the state
+});
+
+const fetchUserProfile = createAsyncThunk(
+  "users/fetchUserProfile",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.get(`/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
-  const response = await axiosInstance.post(`/api/users/${user.id}/wishlist`, { bookId });
-  return response.data;
-});
-
-// Async Thunk to Login
-export const login = createAsyncThunk("users/login", async (credentials) => {
-  const response = await axiosInstance.post("/api/login", credentials);
-  return response.data; // Assuming the API returns user data and token
-});
-
-// Async Thunk to Logout
-export const logout = createAsyncThunk("users/logout", async () => {
-  const response = await axiosInstance.post("/api/logout");
-  return response.data; // Assuming the API confirms logout
-});
-
+);
 // Initial State
 const initialState = {
   users: [], // List of all users (for admin purposes)
@@ -46,6 +56,7 @@ const initialState = {
   isAuthenticated: false, // Authentication status
   loading: false,
   error: null,
+  validationErrors: null, // Add specific field for validation errors
   cart: [], // User's cart
   wishlist: [], // User's wishlist
 };
@@ -75,59 +86,63 @@ const usersSlice = createSlice({
         state.error = action.error.message;
       })
 
-      // Add to Cart
-      .addCase(addToCart.pending, (state) => {
+      // Add User
+      .addCase(addUser.pending, (state) => {
         state.loading = true;
       })
-      .addCase(addToCart.fulfilled, (state, action) => {
+      .addCase(addUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.cart.push(action.payload); // Add book to cart
+        state.users.push(action.payload);
       })
-      .addCase(addToCart.rejected, (state, action) => {
+      .addCase(addUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
 
-      // Add to Wishlist
-      .addCase(addToWishlist.pending, (state) => {
+      // Delete User
+      .addCase(deleteUser.pending, (state) => {
         state.loading = true;
       })
-      .addCase(addToWishlist.fulfilled, (state, action) => {
+      .addCase(deleteUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.wishlist.push(action.payload); // Add book to wishlist
+        state.users = state.users.filter(user => user.id !== action.payload); // Remove user from state
       })
-      .addCase(addToWishlist.rejected, (state, action) => {
+      .addCase(deleteUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
-
-      // Login
-      .addCase(login.pending, (state) => {
+//update
+      .addCase(updateUser.pending, (state) => {
         state.loading = true;
       })
-      .addCase(login.fulfilled, (state, action) => {
+      .addCase(updateUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.user; // Set the logged-in user
-        state.isAuthenticated = true; // Set authentication status to true
+        // Update the user in the state with the updated data
+        const index = state.users.findIndex((user) => user.id === action.payload.id);
+        if (index !== -1) {
+          state.users[index] = action.payload;
+        }
       })
-      .addCase(login.rejected, (state, action) => {
+      .addCase(updateUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
-
-      // Logout
-      .addCase(logout.pending, (state) => {
+      // Edit Profile
+      .addCase(editProfile.pending, (state) => {
         state.loading = true;
       })
-      .addCase(logout.fulfilled, (state) => {
+      .addCase(editProfile.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = null; // Clear the logged-in user
-        state.isAuthenticated = false; // Set authentication status to false
+        state.user = action.payload; // Update the logged-in user profile in state
       })
-      .addCase(logout.rejected, (state, action) => {
+      .addCase(editProfile.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+      })
+      .addCase(fetchUserProfile.fulfilled, (state, action) => {
+        state.currentUser = action.payload;
       });
+      
   },
 });
 
@@ -136,3 +151,6 @@ export const { setAuthenticated } = usersSlice.actions;
 
 // Export Reducer
 export default usersSlice.reducer;
+
+// Export Async Thunks
+export { fetchUsers, addUser, deleteUser ,updateUser,editProfile,fetchUserProfile};

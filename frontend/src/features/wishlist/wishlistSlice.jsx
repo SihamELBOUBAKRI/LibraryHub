@@ -12,7 +12,7 @@ export const fetchWishlist = createAsyncThunk(
   'wishlist/fetchWishlist',
   async (userId, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/users/${userId}/wishlist`);
+      const response = await axiosInstance.get(`users/${userId}/wishlist`);
       return response.data.books; // Assuming `books` array is returned
     } catch (error) {
       return rejectWithValue(error.response?.data || 'Failed to fetch wishlist');
@@ -25,7 +25,7 @@ export const addWishlistItem = createAsyncThunk(
   'wishlist/addWishlistItem',
   async ({ userId, bookId }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.post(`/users/${userId}/wishlist`, { book_id: bookId });
+      const response = await axiosInstance.post(`users/${userId}/wishlist`, { book_id: bookId });
       return { id: bookId, ...response.data }; // Add book to local state
     } catch (error) {
       return rejectWithValue(error.response?.data || 'Failed to add book to wishlist');
@@ -38,7 +38,7 @@ export const removeWishlistItem = createAsyncThunk(
   'wishlist/removeWishlistItem',
   async ({ userId, bookId }, { rejectWithValue }) => {
     try {
-      await axiosInstance.delete(`/users/${userId}/wishlist/${bookId}`);
+      await axiosInstance.delete(`users/${userId}/wishlist/${bookId}`);
       return bookId; // Return book ID to remove from state
     } catch (error) {
       return rejectWithValue(error.response?.data || 'Failed to remove book from wishlist');
@@ -71,6 +71,10 @@ const wishlistSlice = createSlice({
       })
       .addCase(addWishlistItem.fulfilled, (state, action) => {
         state.loading = false;
+        // Initialize items as array if it's not already
+        if (!Array.isArray(state.items)) {
+          state.items = [];
+        }
         state.items.push(action.payload);
       })
       .addCase(addWishlistItem.rejected, (state, action) => {

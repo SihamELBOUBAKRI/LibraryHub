@@ -1,0 +1,193 @@
+/* AddAuthor.css - Enhanced Styling */
+
+/* Main Container */
+.add-author-container {
+  padding: 2.5rem;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  max-width: 800px;
+  margin: 2rem auto;
+  border: 1px solid #eaeaea;
+}
+
+/* Title Styling */
+.add-author-title {
+  color: #2c3e50;
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.8rem;
+  padding-bottom: 0.8rem;
+  border-bottom: 2px solid #f0f2f5;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
+/* Form Styling */
+.add-author-form {
+  padding: 1rem;
+}
+
+/* Form Groups */
+.add-author-form .form-group {
+  margin-bottom: 1.8rem;
+}
+
+/* Labels */
+.add-author-form .form-label {
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+}
+
+/* Input Fields */
+.add-author-form .form-control {
+  border-radius: 8px;
+  padding: 0.85rem 1.2rem;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  font-size: 0.95rem;
+  background-color: #f8fafc;
+}
+
+.add-author-form .form-control:focus {
+  border-color: #af002d ;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  background-color: #ffffff;
+}
+
+/* Textarea Specific */
+.add-author-form textarea.form-control {
+  min-height: 140px;
+  resize: vertical;
+}
+
+/* File Input Styling */
+.add-author-form .form-control[type="file"] {
+  padding: 0.5rem;
+  border: 2px dashed #cbd5e0;
+  background-color: rgba(237, 242, 247, 0.5);
+}
+
+.add-author-form .form-control[type="file"]:hover {
+  border-color: #a0aec0;
+  background-color: rgba(237, 242, 247, 0.8);
+}
+
+/* Selected File Text */
+.add-author-form .text-muted {
+  font-size: 0.85rem;
+  color: #718096 !important;
+  margin-top: 0.5rem;
+  display: inline-block;
+  padding: 0.3rem 0.6rem;
+  background-color: #edf2f7;
+  border-radius: 4px;
+}
+
+/* Validation Feedback */
+.add-author-form .invalid-feedback {
+  font-size: 0.85rem;
+  margin-top: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  background-color: #fff5f5;
+  color: #e53e3e;
+}
+
+/* Submit Button */
+.add-author-form .btn {
+  background: linear-gradient(135deg, #f88da8 , #af002d 100%);
+  border: none;
+  padding: 0.8rem 2.2rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: auto;
+  min-width: 200px;
+}
+
+.add-author-form .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg,#af002d, #f88da8 100%);
+}
+
+.add-author-form .btn:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.ms-2{
+  background: linear-gradient(135deg, #f88da8 , #af002d 100%);
+  border: none;
+  padding: 0.8rem 2.2rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: auto;
+  min-width: 200px;
+}
+.ms-2:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(135deg,#af002d, #f88da8 100%);
+}
+.add-author-form .btn:disabled {
+  background: #a0aec0;
+  transform: none;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Loading Spinner */
+.add-author-form .spinner-border {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-width: 0.15em;
+  vertical-align: middle;
+  margin-right: 0.5rem;
+}
+
+/* Alert Styling */
+.alert-danger {
+  background-color: #fff5f5;
+  border-color: #fed7d7;
+  color: #e53e3e;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+}
+
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .add-author-container {
+    padding: 1.8rem;
+    margin: 1.5rem;
+  }
+  
+  .add-author-title {
+    font-size: 1.7rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .add-author-container {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+  
+  .add-author-form .btn {
+    width: 100%;
+  }
+}

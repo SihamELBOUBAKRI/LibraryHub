@@ -1,7 +1,7 @@
 /* CustomerDashboard.css */
 .dashboard-container{
-  padding: 0;
-  margin: 0;
+  padding: 15px 15px 10px 10px;
+  margin-left: 100px;
   width: 93%;
 }
 /* Overall Layout */
@@ -182,14 +182,18 @@
 .offcanvas-body {
   padding: 20px;
 }
+.link{
+  text-decoration: none;
+  color: inherit;
+}
 
-.cart-items-list {
+.cart-items-list  ,.wishlist-items-list{
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.cart-item {
+.cart-item,.wishlist-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -255,8 +259,137 @@
 .offcanvas-backdrop {
   background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
 }
+/* Profile Section Layout */
+.profile-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 2rem;
+  padding: 20px;
+  background-color: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+  width: 100%;
+  max-width: 1000px;
+}
+
+/* Left Side - User Info */
+.user-info {
+  flex: 1;
+  padding: 20px;
+  background-color: #fafafa;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.user-info h2 {
+  font-size: 1.8rem;
+  color: #333;
+  margin-bottom: 15px;
+}
+
+.user-info p {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+/* Right Side - Membership Info */
+.member-info {
+  flex: 1;
+  padding: 20px;
+  background-color: #ece7d5;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.member-info h3 {
+  font-size: 1.5rem;
+  color: #af002d;
+  margin-bottom: 15px;
+}
+
+.member-info ul {
+  list-style: none;
+  padding: 0;
+}
+
+.member-info li {
+  font-size: 1rem;
+  color: #333;
+  background-color: white;
+  padding: 10px;
+  margin: 5px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Overdue Label */
+.overdue-label {
+  color: white;
+  background-color: #d9534f;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.9rem;
+  margin-left: 10px;
+}
+
+/* Join Membership Section */
+.join-members {
+  text-align: center;
+  padding: 20px;
+}
+
+.join-members h3 {
+  font-size: 1.5rem;
+  color: #af002d;
+}
+
+.join-members p {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 15px;
+}
+
+/* Join Button */
+.join-button {
+  background-color: #af002d;
+  color: white;
+  font-size: 1.1rem;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.join-button:hover {
+  background-color: #9a0027;
+  transform: scale(1.05);
+}
+
 
 @media (max-width: 768px) {
+  .profile-section {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .user-info, .member-info {
+    width: 100%;
+    text-align: center;
+  }
+
+  .user-info p {
+    text-align: left;
+  }
   .offcanvas {
     width: 100%;
     padding: 15px;
@@ -292,3 +425,299 @@
   color: #6c757d; /* Gray when disabled */
   cursor: not-allowed;
 }
+
+
+/* Profile Section */
+.profile-container {
+  display: flex;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 30px;
+  border-radius: 15px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  margin-top: 20px;
+  height: 80vh;
+}
+
+/* Increase Offcanvas Height */
+.offcanvas {
+  height: 98vh !important; /* Adjust height */
+}
+
+.offcanvas-body {
+  height: 80vh; /* Ensure content scrolls within */
+  overflow-y: auto;
+}
+
+/* Style Offcanvas Header */
+.offcanvas-header {
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+/* ======= Form Group Styling ======= */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+/* Input Fields */
+.form-control,.form-select {
+  width: 100%;
+  padding: 2px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
+  color: #333;
+  transition: all 0.3s ease-in-out;
+}
+
+.form-control:focus,.form-select:focus {
+  outline: none;
+  background: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* ======= Button Styling ======= */
+.join {
+  width: 20%;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #af002d, #78610e);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.3s ease-in-out;
+}
+
+.join:hover {
+  background: linear-gradient(135deg, #78610e, #af002d);
+  transform: scale(1.05);
+}
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edit-icon {
+  cursor: pointer;
+  color: #af002d;
+  font-size: 1.5rem;
+}
+
+.settings-section {
+  margin-top: 15px;
+  padding: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.settings-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.settings-icon {
+  font-size: 1.2rem;
+  color: #2575fc;
+}
+
+.settings-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.settings-section li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: 0.3s;
+}
+
+.settings-section li:hover {
+  color: #2575fc;
+}
+
+
+/* Checkout Modal Styling */
+.modal-content {
+  background-color: #f8f9fa;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  background: linear-gradient(145deg, #af002d, #b23c59);
+  color: white;
+  border-radius: 10px 10px 0 0;
+  padding: 1.2rem 1.5rem;
+  border-bottom: none;
+}
+
+.modal-title {
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  border-top: none;
+  padding: 1rem 1.5rem;
+  background-color: #f1f1f1;
+  border-radius: 0 0 10px 10px;
+}
+
+/* Form Group Styling in Modals */
+.modal .form-group {
+  margin-bottom: 1.2rem;
+}
+
+.modal .form-label {
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 0.5rem;
+}
+
+.modal .form-control, 
+.modal .form-select {
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  transition: all 0.3s;
+  background-color: white;
+}
+
+.modal .form-control:focus, 
+.modal .form-select:focus {
+  border-color: #af002d;
+  box-shadow: 0 0 0 0.25rem rgba(175, 0, 45, 0.25);
+}
+
+/* Payment Method Specific Styling */
+.payment-method-info {
+  background-color: #e9ecef;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.payment-method-info i {
+  font-size: 1.5rem;
+  margin-right: 0.75rem;
+  color: #0070ba; /* PayPal blue */
+}
+
+/* Button Styling */
+.modal .btn-secondary {
+  background-color: #6c757d;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.modal .btn-primary {
+  background-color: #af002d;
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.modal .btn-primary:hover {
+  background-color: #9a0027;
+  transform: translateY(-2px);
+}
+
+/* Edit Profile Modal Specific Styling */
+.edit-profile-modal .modal-body {
+  padding: 1.5rem 2rem;
+}
+
+.edit-profile-modal .form-group {
+  margin-bottom: 1.5rem;
+}
+
+.edit-profile-modal .form-control {
+  background-color: white;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .modal-dialog {
+    margin: 1rem auto;
+  }
+  
+  .modal-content {
+    border-radius: 8px;
+  }
+  
+  .modal-header {
+    padding: 1rem;
+  }
+  
+  .modal-body {
+    padding: 1rem;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .modal .btn {
+    width: 100%;
+  }
+}
+
+/* Special styling for credit card fields */
+.credit-card-fields {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+  border: 1px solid #e9ecef;
+}
+
+/* Alert styling for payment methods */
+.payment-alert {
+  border-left: 4px solid #0070ba;
+  background-color: #f8f9fa;
+}
+
+/* Expiration date input styling */
+.expiration-input-group {
+  display: flex;
+  align-items: center;
+}
+
+.expiration-input-group .form-control {
+  flex: 1;
+  margin-right: 0.5rem;
+}
+
+.expiration-input-group span {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+

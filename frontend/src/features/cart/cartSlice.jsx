@@ -13,7 +13,7 @@ export const fetchCart = createAsyncThunk(
   'cart/fetchCart',
   async (userId, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.get(`/users/${userId}/cart`);
+      const response = await axiosInstance.get(`users/${userId}/cart`);
       return response.data; // returns items and totalAmount
     } catch (error) {
       return rejectWithValue(error.message);
@@ -26,7 +26,7 @@ export const addToCart = createAsyncThunk(
   async ({ userId, bookId }, { rejectWithValue }) => {
     try {
       // Send only book_id, letting the backend handle quantity increment
-      const response = await axiosInstance.post(`/users/${userId}/cart`, {
+      const response = await axiosInstance.post(`users/${userId}/cart`, {
         book_id: bookId,
       });
 
@@ -54,7 +54,7 @@ export const removeFromCart = createAsyncThunk(
         return rejectWithValue("Book not found in cart.");
       }
 
-      const response = await axiosInstance.delete(`/users/${userId}/cart/${bookId}`);
+      const response = await axiosInstance.delete(`users/${userId}/cart/${bookId}`);
       return response.data;
     } catch (error) {
       return rejectWithValue(error.message);
@@ -95,15 +95,34 @@ const cartSlice = createSlice({
       })
       .addCase(addToCart.fulfilled, (state, action) => {
         const addedItem = action.payload;
-        const existingItem = state.items.find(item => item.book_id === addedItem.book_id);
-  
-        if (existingItem) {
-          existingItem.quantity = addedItem.quantity; // Update quantity from backend
-        } else {
-          state.items.push(addedItem);
+        
+        // Initialize items array if empty
+        if (!state.items) {
+          state.items = [];
         }
-  
-        state.totalAmount = state.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      
+        // Find existing item (safe for undefined/null)
+        const existingItem = state.items.find(item => 
+          item?.book_id === addedItem.book_id || 
+          item?.book?.id === addedItem.book_id
+        );
+      
+        if (existingItem) {
+          existingItem.quantity = addedItem.quantity;
+        } else {
+          // Ensure the added item has proper structure
+          const newItem = {
+            ...addedItem,
+            book: addedItem.book || { id: addedItem.book_id } // Fallback if book not populated
+          };
+          state.items.push(newItem);
+        }
+      
+        // Recalculate total safely
+        state.totalAmount = state.items.reduce(
+          (sum, item) => sum + (item.book?.price || item.price || 0) * (item.quantity || 1),
+          0
+        );
       })
 
       .addCase(removeFromCart.fulfilled, (state, action) => {

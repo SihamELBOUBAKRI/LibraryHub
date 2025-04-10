@@ -8,6 +8,7 @@ export const fetchMemberships = createAsyncThunk(
         try {
             const response = await axiosInstance.get('/membership-cards');
             return response.data;
+            
         } catch (error) {
             return rejectWithValue(error.response?.data || 'Failed to fetch memberships');
         }
@@ -40,6 +41,21 @@ export const updateMembership = createAsyncThunk(
     }
 );
 
+
+// Get user's membership card
+export const fetchUserMembership = createAsyncThunk(
+    'membership/fetchUserMembership',
+    async (userId, { rejectWithValue }) => {
+        try {
+            const response = await axiosInstance.get(`/users/${userId}/membership-cards`);
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || 'Failed to fetch user membership');
+        }
+    }
+);
+
+
 // Delete a membership
 export const deleteMembership = createAsyncThunk(
     'membership/deleteMembership',
@@ -55,7 +71,7 @@ export const deleteMembership = createAsyncThunk(
 
 const membershipSlice = createSlice({
     name: 'membership',
-    initialState: { memberships: [], status: 'idle', error: null },
+    initialState: { memberships: [], status: 'idle',userMembership: null, error: null },
     reducers: {},
     extraReducers: (builder) => {
         builder
@@ -71,8 +87,12 @@ const membershipSlice = createSlice({
                 state.error = action.payload;
             })
             .addCase(createMembership.fulfilled, (state, action) => {
-                state.memberships.push(action.payload.membership);
-            })
+                state.status = 'succeeded';
+                // Ultra-safe array handling
+                const currentMemberships = Array.isArray(state.memberships) ? state.memberships : [];
+                state.memberships = [...currentMemberships, action.payload];
+              })
+              
             .addCase(updateMembership.fulfilled, (state, action) => {
                 const index = state.memberships.findIndex(m => m.id === action.payload.membership.id);
                 if (index !== -1) {
@@ -81,6 +101,18 @@ const membershipSlice = createSlice({
             })
             .addCase(deleteMembership.fulfilled, (state, action) => {
                 state.memberships = state.memberships.filter(m => m.id !== action.payload);
+            })
+            .addCase(fetchUserMembership.pending, (state) => {
+                state.status = 'loading';
+            })
+            .addCase(fetchUserMembership.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.userMembership = action.payload.data || null;
+            })
+            .addCase(fetchUserMembership.rejected, (state, action) => {
+                state.status = 'failed';
+                state.error = action.payload;
+                state.userMembership = null;
             });
     },
 });

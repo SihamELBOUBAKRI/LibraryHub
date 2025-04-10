@@ -14,12 +14,16 @@ return new class extends Migration
     {
         Schema::create('transactions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // User who made the payment
-            $table->foreignId('order_id')->constrained()->onDelete('cascade'); // Reference to the order being paid
-            $table->decimal('amount', 8, 2); // Payment amount
-            $table->enum('payment_status', ['Pending', 'Completed', 'Failed'])->default('Pending'); // Payment status
-            $table->enum('payment_method', ['Credit Card', 'PayPal', 'Bank Transfer', 'Cash on Delivery']); // Payment method
-            $table->string('transaction_id')->nullable(); // Payment transaction ID from payment gateway (nullable for offline payments)
+
+            // User who made the payment
+            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->foreignId('order_id')->nullable()->constrained()->onDelete('cascade'); 
+            $table->foreignId('membership_card_id')->nullable()->constrained()->onDelete('cascade');
+            $table->decimal('amount', 8, 2);
+            $table->enum('payment_status', ['Pending', 'Completed', 'Failed'])->default('Pending');
+            $table->enum('payment_method', ['Credit Card', 'PayPal', 'Bank Transfer', 'Cash on Delivery','cash', 'Membership Payment']);
+            $table->string('transaction_id')->nullable();
+            $table->enum('transaction_type', ['Order', 'Membership'])->default('Order'); 
             $table->timestamps();
         });
     }

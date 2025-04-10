@@ -26,9 +26,10 @@ class Cart extends Model
     /**
      * Get the cart items for the cart.
      */
+    // In Cart.php model
     public function items()
     {
-        return $this->hasMany(CartItem::class);
+        return $this->hasMany(CartItem::class)->with('book');
     }
 
     /**

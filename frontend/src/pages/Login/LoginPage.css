@@ -1,5 +1,5 @@
 /* Login Container */
-.login-container {
+.login-container ,.change-password-container{
   display: flex;
   justify-content: center;
   align-items: center;
@@ -9,7 +9,7 @@
 }
 
 /* Login Box */
-.login-box {
+.login-box,.change-password-box {
   background: white;
   padding: 2rem;
   border-radius: 15px;
@@ -19,7 +19,7 @@
   text-align: center;
 }
 
-.login-box h2 {
+.login-box h2,.change-password-box h2 {
   font-size: 2rem;
   color: #af002d; /* Primary color */
   margin-bottom: 0.5rem;
@@ -32,7 +32,7 @@
 }
 
 /* Login Form */
-.login-form {
+.login-form,.change-password-form {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -53,7 +53,7 @@
 }
 
 /* Login Button */
-.login-button {
+.login-button,.change-password-button {
   width: 100%;
   padding: 0.75rem;
   background: #af002d; /* Primary color */
@@ -65,7 +65,7 @@
   transition: background 0.3s;
 }
 
-.login-button:hover {
+.login-button:hover,.change-password-button:hover {
   background: #75001f; /* Darker shade on hover */
 }
 
