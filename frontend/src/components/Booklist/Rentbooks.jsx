@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchBooksToRent, addBookToRent } from '../../features/book_to_rent/book_to_rentSlice';
+import { fetchBooksToRent, addBookToRent, deleteBookToRent, updateBookToRent } from '../../features/book_to_rent/book_to_rentSlice';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Row, Button, Spinner, Form, InputGroup, Offcanvas } from 'react-bootstrap';
-import { addWishlistItem, removeWishlistItem } from '../../features/wishlist/wishlistSlice';
-import { FaSearch, FaEdit, FaPlus } from 'react-icons/fa';
+import { Container, Row, Button, Spinner, Form, InputGroup, Offcanvas, Table } from 'react-bootstrap';
+import { addWishlistItem, removeWishlistItem, fetchWishlist } from '../../features/wishlist/wishlistSlice';
+import { FaSearch, FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
 import { fetchAuthors } from '../../features/authors/authorsSlice';
 import { fetchCategories } from '../../features/book_to_sell/book_to_sellSlice';
 import { ToastContainer, toast } from 'react-toastify';
@@ -19,6 +19,8 @@ const RentBooks = () => {
   const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [showAddBookForm, setShowAddBookForm] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedBookForEdit, setSelectedBookForEdit] = useState(null);
   const [newBook, setNewBook] = useState({
     title: '',
     author_id: '',
@@ -35,7 +37,8 @@ const RentBooks = () => {
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [showReserveModal, setShowReserveModal] = useState(false);
-const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
+  const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
+
   const { books = [], loading: booksLoading, error: booksError } = useSelector((state) => state.book_to_rent);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const { authors = [], loading: authorsLoading } = useSelector((state) => state.authors);
@@ -48,12 +51,18 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
     dispatch(fetchBooksToRent());
     dispatch(fetchAuthors());
     dispatch(fetchCategories());
-  }, [dispatch]);
+    if (isAuthenticated && user) {
+      dispatch(fetchWishlist(user.id));
+    }
+  }, [dispatch, isAuthenticated, user]);
 
   useEffect(() => {
-    const filtered = books.filter((book) =>
-      book.title.toLowerCase().includes(localSearchQuery.toLowerCase())
-    );
+    const filtered = books.filter((book) => {
+      if (!book || !book.title) return false;
+      const bookTitle = book.title.toLowerCase();
+      const searchTerm = localSearchQuery.toLowerCase();
+      return bookTitle.includes(searchTerm);
+    });
     setFilteredBooks(filtered);
   }, [localSearchQuery, books]);
 
@@ -75,8 +84,6 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
       prevSelected?.id === book.id ? null : book
     );
     window.scrollTo(0, 0);
-    console.log(setSelectedBook);
-    
   };
 
   const handleSearch = () => {
@@ -87,7 +94,36 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
   };
 
   const handleEditBook = (book) => {
-    navigate(`/edit-book/${book.id}`);
+    setNewBook({
+      title: book.title,
+      author_id: book.author_id,
+      category_id: book.category_id,
+      description: book.description,
+      published_year: book.published_year,
+      rental_price: book.rental_price,
+      rental_period_days: book.rental_period_days,
+      late_fee_per_day: book.late_fee_per_day,
+      availability_status: book.availability_status,
+      condition: book.condition,
+      min_rental_period_days: book.min_rental_period_days,
+      image: null
+    });
+    setPreviewImage(book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : null);
+    setSelectedBookForEdit(book);
+    setIsEditMode(true);
+    setShowAddBookForm(true);
+  };
+
+  const handleDeleteBook = async (bookId) => {
+    if (window.confirm('Are you sure you want to delete this rental book?')) {
+      try {
+        await dispatch(deleteBookToRent(bookId)).unwrap();
+        toast.success('Rental book deleted successfully');
+        dispatch(fetchBooksToRent());
+      } catch (error) {
+        toast.error('Failed to delete the rental book.');
+      }
+    }
   };
 
   const handleNewBookChange = (e) => {
@@ -119,12 +155,31 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
     setShowReserveModal(true);
   };
 
+  const resetForm = () => {
+    setNewBook({
+      title: '',
+      author_id: '',
+      category_id: '',
+      description: '',
+      published_year: '',
+      rental_price: '',
+      rental_period_days: 7,
+      late_fee_per_day: 1,
+      availability_status: 'available',
+      condition: 'good',
+      min_rental_period_days: 1,
+      image: null
+    });
+    setPreviewImage(null);
+    setIsEditMode(false);
+    setSelectedBookForEdit(null);
+  };
+
   const handleAddBookSubmit = async (e) => {
     e.preventDefault();
     try {
       const formData = new FormData();
       
-      // Append all fields
       formData.append('title', newBook.title);
       formData.append('author_id', newBook.author_id);
       formData.append('category_id', newBook.category_id);
@@ -137,33 +192,27 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
       formData.append('condition', newBook.condition);
       formData.append('min_rental_period_days', newBook.min_rental_period_days);
       
-      // Append the image file if it exists
       if (newBook.image) {
         formData.append('image', newBook.image.name);
         formData.append('image_file', newBook.image);
       }
-  
-      await dispatch(addBookToRent(formData)).unwrap();
-      toast.success('Book added for rent successfully');
+
+      if (isEditMode && selectedBookForEdit) {
+        await dispatch(updateBookToRent({ 
+          id: selectedBookForEdit.id, 
+          bookData: formData 
+        })).unwrap();
+        toast.success('Book updated successfully');
+      } else {
+        await dispatch(addBookToRent(formData)).unwrap();
+        toast.success('Book added for rent successfully');
+      }
+      
       setShowAddBookForm(false);
-      setNewBook({
-        title: '',
-        author_id: '',
-        category_id: '',
-        description: '',
-        published_year: '',
-        rental_price: '',
-        rental_period_days: 7,
-        late_fee_per_day: 1,
-        availability_status: 'available',
-        condition: 'good',
-        min_rental_period_days: 1,
-        image: null
-      });
-      setPreviewImage(null);
+      resetForm();
       dispatch(fetchBooksToRent());
     } catch (error) {
-      toast.error('Failed to add book for rent');
+      toast.error(isEditMode ? 'Failed to update book' : 'Failed to add book for rent');
     }
   };
 
@@ -187,81 +236,356 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
     );
   }
 
-  return (
-    <>
-      <Container className="rent-books-container">
-        <Row>
-          <h2 className="book-list-title">Books to Rent</h2>
-          
-          <div className="mb-4 text-center">
+  // Admin View - Table Layout
+  if (user?.role === 'admin') {
+    return (
+      <Container className="book-list-container">
+        <h2 className="book-list-title">Rental Books Management</h2>
+        
+        <div className="mb-4">
+          <InputGroup>
             <Form.Control
               type="text"
-              placeholder="Search books..."
+              placeholder="Search rental books..."
               value={localSearchQuery}
               onChange={(e) => setLocalSearchQuery(e.target.value)}
             />
-          </div>
-
-          {/* Add Book to Rent button for admin */}
-          {user?.role === 'admin' && (
-            <Button 
-              onClick={() => setShowAddBookForm(true)}
-              className="round"
-            >
-              <FaPlus />
+            <Button variant="outline-secondary" onClick={handleSearch}>
+              <FaSearch />
             </Button>
-          )}
+          </InputGroup>
+        </div>
+
+        <Button 
+          variant="primary" 
+          onClick={() => {
+            resetForm();
+            setShowAddBookForm(true);
+          }}
+          className="mb-3"
+        >
+          <FaPlus /> Add New Rental Book
+        </Button>
+
+        <Table striped bordered hover responsive>
+          <thead>
+            <tr>
+              <th>Cover</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Category</th>
+              <th>Rental Price</th>
+              <th>Status</th>
+              <th>Condition</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(localSearchQuery ? filteredBooks : books).map((book) => (
+              <tr key={book.id}>
+                <td>
+                  <img
+                    src={book?.image && `http://127.0.0.1:8000/storage/BookImages/${book.image}` }
+                    alt={book?.title || 'Book cover'}
+                    style={{ width: '50px', height: 'auto' }}
+                  />
+                </td>
+                <td>{book.title}</td>
+                <td>{book.author?.name || 'N/A'}</td>
+                <td>{book.category?.name || 'N/A'}</td>
+                <td>${book.rental_price}</td>
+                <td>
+                  <span className={`status-badge ${book.availability_status.toLowerCase()}`}>
+                    {book.availability_status}
+                  </span>
+                </td>
+                <td>
+                  <span className={`condition-badge ${book.condition.toLowerCase()}`}>
+                    {book.condition}
+                  </span>
+                </td>
+                <td>
+                  <Button 
+                    variant="info" 
+                    size="sm" 
+                    onClick={() => handleEditBook(book)}
+                    className="me-2"
+                  >
+                    <FaEdit />
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    size="sm" 
+                    onClick={() => handleDeleteBook(book.id)}
+                  >
+                    <FaTrash />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+
+        <Offcanvas 
+          show={showAddBookForm} 
+          onHide={() => {
+            setShowAddBookForm(false);
+            resetForm();
+          }}
+          placement="bottom"
+        >
+          <Offcanvas.Header closeButton>
+            <Offcanvas.Title>
+              {isEditMode ? 'Edit Rental Book' : 'Add New Rental Book'}
+            </Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body>
+            <Form onSubmit={handleAddBookSubmit}>
+              <Form.Group className="mb-3">
+                <Form.Label>Title</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="title"
+                  value={newBook.title}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Author</Form.Label>
+                <Form.Select
+                  name="author_id"
+                  value={newBook.author_id}
+                  onChange={handleNewBookChange}
+                  required
+                  disabled={authorsLoading}
+                >
+                  <option value="">Select Author</option>
+                  {authors.map(author => (
+                    <option key={author.id} value={author.id}>
+                      {author.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Category</Form.Label>
+                <Form.Select
+                  name="category_id"
+                  value={newBook.category_id}
+                  onChange={handleNewBookChange}
+                  required
+                  disabled={categoriesLoading}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Description</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  name="description"
+                  value={newBook.description}
+                  onChange={handleNewBookChange}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Published Year</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="published_year"
+                  value={newBook.published_year}
+                  onChange={handleNewBookChange}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Rental Price</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  name="rental_price"
+                  value={newBook.rental_price}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Rental Period (days)</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="rental_period_days"
+                  value={newBook.rental_period_days}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Late Fee Per Day</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  name="late_fee_per_day"
+                  value={newBook.late_fee_per_day}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Availability Status</Form.Label>
+                <Form.Select
+                  name="availability_status"
+                  value={newBook.availability_status}
+                  onChange={handleNewBookChange}
+                  required
+                >
+                  <option value="available">Available</option>
+                  <option value="rented">Rented</option>
+                  <option value="reserved">Reserved</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Condition</Form.Label>
+                <Form.Select
+                  name="condition"
+                  value={newBook.condition}
+                  onChange={handleNewBookChange}
+                  required
+                >
+                  <option value="new">New</option>
+                  <option value="good">Good</option>
+                  <option value="fair">Fair</option>
+                  <option value="damaged">Damaged</option>
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Minimum Rental Period (days)</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="min_rental_period_days"
+                  value={newBook.min_rental_period_days}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Book Cover</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+                {previewImage && (
+                  <div className="mt-2">
+                    <img 
+                      src={previewImage} 
+                      alt="Preview" 
+                      style={{ maxWidth: '100px', maxHeight: '100px' }} 
+                    />
+                  </div>
+                )}
+                {isEditMode && !previewImage && selectedBookForEdit?.image && (
+                  <div className="mt-2">
+                    <p>Current Image:</p>
+                    <img 
+                      src={`http://127.0.0.1:8000/storage/BookImages/${selectedBookForEdit.image}`} 
+                      alt="Current" 
+                      style={{ maxWidth: '100px', maxHeight: '100px' }} 
+                    />
+                  </div>
+                )}
+              </Form.Group>
+
+              <Button variant="primary" type="submit">
+                {isEditMode ? 'Update Book' : 'Add Book to Rent'}
+              </Button>
+            </Form>
+          </Offcanvas.Body>
+        </Offcanvas>
+
+        <ToastContainer />
+      </Container>
+    );
+  }
+
+  // Customer View - Original Layout
+  return (
+    <>
+      <Container className="book-list-container">
+        <Row>
+          <h2 className="book-list-title">Books to Rent</h2>
+
+          <div className="mb-4 text-center">
+           <InputGroup>
+              <Form.Control
+                type="text"
+                placeholder="Search rental books..."
+                value={localSearchQuery}
+                onChange={(e) =>  setLocalSearchQuery(e.target.value)}
+              />
+            </InputGroup>
+          </div>
 
           <div className="book-list">
             {selectedBook && (
               <div className="book-info-container">
-              <div className="info">
-                <h2>{selectedBook.title}</h2>
-                <p>{selectedBook.description}</p>
-            
-                <div className="book-details">
-                  <div className="book-detail">
-                    <i className="fas fa-user"></i>
-                    <span>Author: {selectedBook.author.name}</span>
-                  </div>
-            
-                  <div className="book-detail">
-                    <i className="fas fa-tags"></i>
-                    <span>Category: {selectedBook.category.name}</span>
-                  </div>
-            
-                  <div className="book-detail">
-                    <i className="fas fa-dollar-sign"></i>
-                    <span>Rental Price: {selectedBook.rental_price} USD</span>
-                  </div>
-            
-                  <div className="book-detail">
-                    <i className="fas fa-calendar-alt"></i>
-                    <span>Published: {selectedBook.published_year}</span>
-                  </div>
-            
-                  {/* Add availability status with color coding */}
-                  <div className="book-detail">
-                    <i className="fas fa-info-circle"></i>
-                    <span>Status : 
-                      <span className={`status-badge ${selectedBook.availability_status.toLowerCase()}`}>
-                        {selectedBook.availability_status}
+                <div className="info">
+                  <h2>{selectedBook.title}</h2>
+                  <p>{selectedBook.description}</p>
+
+                  <div className="book-details">
+                    <div className="book-detail">
+                      <i className="fas fa-user"></i>
+                      <span>Author: {selectedBook.author.name}</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-tags"></i>
+                      <span>Category: {selectedBook.category.name}</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-dollar-sign"></i>
+                      <span>Rental Price: {selectedBook.rental_price} USD</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-calendar-alt"></i>
+                      <span>Published: {selectedBook.published_year}</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-info-circle"></i>
+                      <span>Status: 
+                        <span className={`status-badge ${selectedBook.availability_status.toLowerCase()}`}>
+                          {selectedBook.availability_status}
+                        </span>
                       </span>
-                    </span>
-                  </div>
-            
-                  {/* Add condition information */}
-                  <div className="book-detail">
-                    <i className="fas fa-clipboard-check"></i>
-                    <span>Condition : 
-                      <span className={`condition-badge ${selectedBook.condition.toLowerCase()}`}>
-                        {selectedBook.condition}
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-clipboard-check"></i>
+                      <span>Condition: 
+                        <span className={`condition-badge ${selectedBook.condition.toLowerCase()}`}>
+                          {selectedBook.condition}
+                        </span>
                       </span>
-                    </span>
-                  </div>
-                </div>
-            
-                    
+                    </div>
                   </div>
 
                   <div className="book-actions">
@@ -270,231 +594,44 @@ const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
                       onClick={() => handleWishlistToggle(selectedBook)}
                       style={{ color: wishlist.some(item => item.id === selectedBook?.id) ? '#af002d' : 'black' }}
                     ></i>
-                    {user&& (
-                        <button 
-                            className="order-icon" 
-                            onClick={() => handleReserveBook(selectedBook)} 
-                            style={{ cursor: 'pointer', color: 'blue' }}
-                        >
-                            Reserve Online
-                        </button>
-                        )}
 
-                        
-                        {/* Show Edit icon if the user is admin */}
-                        {user?.role === 'admin' && (
-                        <FaEdit
-                            className="edit-icon"
-                            onClick={() => handleEditBook(selectedBook)}
-                            style={{ cursor: 'pointer'}}
-                        />
-                        )}
+                    {user && (
+                      <button 
+                        className="order-icon" 
+                        onClick={() => handleReserveBook(selectedBook)} 
+                        style={{ cursor: 'pointer', color: 'blue' }}
+                      >
+                        Reserve Online
+                      </button>
+                    )}
                   </div>
                 </div>
-            )}
-
-            {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
-              <div key={book.id} className="book-item">
-                <img
-                  onClick={() => handleBookClick(book)}
-                  src={book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/150'}
-                  alt={book.title}
-                  className={`book-image ${selectedBook?.id === book.id ? 'large-image' : ''}`}
-                />
               </div>
+            )}
+            {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
+              book && (
+                <div key={book.id} className="book-item">
+                  <img
+                    onClick={() => handleBookClick(book)}
+                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.jpeg'}
+                    alt={book?.title || 'Book cover'}
+                    className={`book-image ${selectedBook?.id === book?.id ? 'large-image' : ''}`}
+                  />
+                </div>
+              )
             ))}
           </div>
-
-            {/* Add Book to Rent Offcanvas */}
-            <Offcanvas 
-                show={showAddBookForm} 
-                onHide={() => setShowAddBookForm(false)}
-                placement="bottom"
-                style={{ height: '80vh' }}
-            >
-                <Offcanvas.Header closeButton>
-                <Offcanvas.Title>Add Book to Rent</Offcanvas.Title>
-                </Offcanvas.Header>
-                <Offcanvas.Body>
-                <Form onSubmit={handleAddBookSubmit}>
-                    <Form.Group className="mb-3">
-                    <Form.Label>Title</Form.Label>
-                    <Form.Control
-                        type="text"
-                        name="title"
-                        value={newBook.title}
-                        onChange={handleNewBookChange}
-                        required
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Author</Form.Label>
-                    <Form.Select
-                        name="author_id"
-                        value={newBook.author_id}
-                        onChange={handleNewBookChange}
-                        required
-                        disabled={authorsLoading}
-                    >
-                        <option value="">Select Author</option>
-                        {authors.map(author => (
-                        <option key={author.id} value={author.id}>
-                            {author.name}
-                        </option>
-                        ))}
-                    </Form.Select>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Category</Form.Label>
-                    <Form.Select
-                        name="category_id"
-                        value={newBook.category_id}
-                        onChange={handleNewBookChange}
-                        required
-                        disabled={categoriesLoading}
-                    >
-                        <option value="">Select Category</option>
-                        {categories.map(category => (
-                        <option key={category.id} value={category.id}>
-                            {category.name}
-                        </option>
-                        ))}
-                    </Form.Select>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Description</Form.Label>
-                    <Form.Control
-                        as="textarea"
-                        name="description"
-                        value={newBook.description}
-                        onChange={handleNewBookChange}
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Published Year</Form.Label>
-                    <Form.Control
-                        type="number"
-                        name="published_year"
-                        value={newBook.published_year}
-                        onChange={handleNewBookChange}
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Rental Price</Form.Label>
-                    <Form.Control
-                        type="number"
-                        step="0.01"
-                        name="rental_price"
-                        value={newBook.rental_price}
-                        onChange={handleNewBookChange}
-                        required
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Rental Period (days)</Form.Label>
-                    <Form.Control
-                        type="number"
-                        name="rental_period_days"
-                        value={newBook.rental_period_days}
-                        onChange={handleNewBookChange}
-                        required
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Late Fee Per Day</Form.Label>
-                    <Form.Control
-                        type="number"
-                        step="0.01"
-                        name="late_fee_per_day"
-                        value={newBook.late_fee_per_day}
-                        onChange={handleNewBookChange}
-                        required
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Availability Status</Form.Label>
-                    <Form.Select
-                        name="availability_status"
-                        value={newBook.availability_status}
-                        onChange={handleNewBookChange}
-                        required
-                    >
-                        <option value="available">Available</option>
-                        <option value="rented">Rented</option>
-                        <option value="reserved">Reserved</option>
-                    </Form.Select>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Condition</Form.Label>
-                    <Form.Select
-                        name="condition"
-                        value={newBook.condition}
-                        onChange={handleNewBookChange}
-                        required
-                    >
-                        <option value="new">New</option>
-                        <option value="good">Good</option>
-                        <option value="fair">Fair</option>
-                        <option value="damaged">Damaged</option>
-                    </Form.Select>
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Minimum Rental Period (days)</Form.Label>
-                    <Form.Control
-                        type="number"
-                        name="min_rental_period_days"
-                        value={newBook.min_rental_period_days}
-                        onChange={handleNewBookChange}
-                        required
-                    />
-                    </Form.Group>
-
-                    <Form.Group className="mb-3">
-                    <Form.Label>Book Cover</Form.Label>
-                    <Form.Control
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                    />
-                    {previewImage && (
-                        <div className="mt-2">
-                        <img 
-                            src={previewImage} 
-                            alt="Preview" 
-                            style={{ maxWidth: '100px', maxHeight: '100px' }} 
-                        />
-                        </div>
-                    )}
-                    </Form.Group>
-
-                    <Button variant="primary" type="submit">
-                    Add Book to Rent
-                    </Button>
-                </Form>
-                </Offcanvas.Body>
-            </Offcanvas>
         </Row>
         {selectedBookForReserve && (
-        <ReserveFastModal
-          show={showReserveModal}
-          handleClose={() => setShowReserveModal(false)}
-          book={selectedBookForReserve}
-          userId={user?.id}
-        />
-      )}
+          <ReserveFastModal
+            show={showReserveModal}
+            handleClose={() => setShowReserveModal(false)}
+            book={selectedBookForReserve}
+            userId={user?.id}
+          />
+        )}
       </Container>
-
-
+      <ToastContainer />
     </>
   );
 };

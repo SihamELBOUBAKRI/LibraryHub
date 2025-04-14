@@ -1,29 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { addBookToSell, fetchBooksToSell, fetchCategories } from '../../features/book_to_sell/book_to_sellSlice';
+import { addBookToSell, fetchBooksToSell, fetchCategories, deleteBookToSell, updateBookToSell } from '../../features/book_to_sell/book_to_sellSlice';
 import { fetchBooksToRent } from '../../features/book_to_rent/book_to_rentSlice';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Container, Row, Button, Spinner, Form, InputGroup, Offcanvas } from 'react-bootstrap';
+import { Container, Row, Button, Spinner, Form, InputGroup, Offcanvas, Table } from 'react-bootstrap';
 import { addToCart } from '../../features/cart/cartSlice';
 import { addWishlistItem, fetchWishlist, removeWishlistItem } from '../../features/wishlist/wishlistSlice';
-import { FaSearch, FaEdit, FaPlus } from 'react-icons/fa';  // Import the Edit icon
+import { FaSearch, FaEdit, FaPlus, FaTrash } from 'react-icons/fa';
 import './BookList.css';
 import OrderFastModal from './OrderFastModal';
 import { fetchAuthors } from '../../features/authors/authorsSlice';
 import { ToastContainer, toast } from 'react-toastify';
 
-
-
-
 const BookList = () => {
   const dispatch = useDispatch();
   const [searchParams] = useSearchParams();
   const searchQuery = searchParams.get('search') || '';
-  const [selectedBook, setSelectedBook] = useState(null); // Track the selected book
+  const [selectedBook, setSelectedBook] = useState(null);
   const [addedToCart, setAddedToCart] = useState(false);
-  const [addedToWishlist, setAddedToWishlist, fetchWishlist] = useState(false);
-  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery); // Local search query state
-  const [filteredBooks, setFilteredBooks] = useState([]); // Filtered books based on search query
+  const [addedToWishlist, setAddedToWishlist] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+  const [filteredBooks, setFilteredBooks] = useState([]);
   const [cartItems, setCartItems] = useState({});
 
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -36,7 +33,11 @@ const BookList = () => {
   const { books = [], loading: booksLoading, error: booksError } = useSelector((state) => state.book_to_sell);
   const { authors = [], loading: authorsLoading } = useSelector((state) => state.authors);
   const { categories, categoriesLoading } = useSelector((state) => state.book_to_sell);
-  const [showAddBookForm, setShowAddBookForm] = useState(false);
+  const [showBookForm, setShowBookForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentBookId, setCurrentBookId] = useState(null);
+  const [imageChanged, setImageChanged] = useState(false);
+
   const [newBook, setNewBook] = useState({
     title: '',
     author_id: '',
@@ -48,12 +49,36 @@ const BookList = () => {
     image: ''
   });
 
-  const handleAddBookSubmit = async (e) => {
+  useEffect(() => {
+    dispatch(fetchBooksToSell());
+    dispatch(fetchAuthors());
+    dispatch(fetchCategories());
+    if (isAuthenticated && user?.isMember) {
+      dispatch(fetchBooksToRent());
+    }
+  }, [dispatch, isAuthenticated, user]);
+  
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      dispatch(fetchWishlist(user.id));
+    }
+  }, [dispatch, isAuthenticated, user]);
+  
+  useEffect(() => {
+    const filtered = books.filter((book) => {
+      if (!book || !book.title) return false;
+      const bookTitle = book.title.toLowerCase();
+      const searchTerm = localSearchQuery.toLowerCase();
+      return bookTitle.includes(searchTerm);
+    });
+    setFilteredBooks(filtered);
+  }, [localSearchQuery, books]);
+
+  const handleBookFormSubmit = async (e) => {
     e.preventDefault();
     try {
       const formData = new FormData();
       
-      // Append all fields
       formData.append('title', newBook.title);
       formData.append('author_id', newBook.author_id);
       formData.append('category_id', newBook.category_id);
@@ -62,30 +87,44 @@ const BookList = () => {
       formData.append('price', newBook.price);
       formData.append('stock', newBook.stock);
       
-      // Append the image file if it exists
-      if (newBook.image instanceof File) {
-        formData.append('image_file', newBook.image);  // Send the actual file with a different key
-        formData.append('image', newBook.image.name);  // Send just the filename as string
+      if (imageChanged && newBook.image instanceof File) {
+        formData.append('image_file', newBook.image);
+        formData.append('image', newBook.image.name);
+      } else if (isEditing && !imageChanged) {
+        formData.append('image', newBook.image);
       }
   
-      await dispatch(addBookToSell(formData)).unwrap();
-      toast.success('Book added succesfully');
-      setShowAddBookForm(false);
-      setNewBook({
-        title: '',
-        author_id: '',
-        category_id: '',
-        description: '',
-        published_year: '',
-        price: '',
-        stock: '',
-        image: null
-      });
-      setPreviewImage(null);
+      if (isEditing) {
+        await dispatch(updateBookToSell({ id: currentBookId, bookData: formData })).unwrap();
+        toast.success('Book updated successfully');
+      } else {
+        await dispatch(addBookToSell(formData)).unwrap();
+        toast.success('Book added successfully');
+      }
+      
+      setShowBookForm(false);
+      resetForm();
       dispatch(fetchBooksToSell());
     } catch (error) {
-      toast.error('Failed to Add the book.');
+      toast.error(`Failed to ${isEditing ? 'update' : 'add'} the book.`);
     }
+  };
+
+  const resetForm = () => {
+    setNewBook({
+      title: '',
+      author_id: '',
+      category_id: '',
+      description: '',
+      published_year: '',
+      price: '',
+      stock: '',
+      image: ''
+    });
+    setPreviewImage(null);
+    setIsEditing(false);
+    setCurrentBookId(null);
+    setImageChanged(false);
   };
 
   const handleNewBookChange = (e) => {
@@ -95,8 +134,8 @@ const BookList = () => {
       [name]: value
     }));
   };
+
   const handleBookClick = (book) => {
-    // Toggle the selected book - if same book is clicked, deselect it
     setSelectedBook(prevSelected => 
       prevSelected?.id === book.id ? null : book
     );
@@ -110,8 +149,8 @@ const BookList = () => {
         ...prev,
         image: file
       }));
+      setImageChanged(true);
       
-      // Create preview
       const reader = new FileReader();
       reader.onloadend = () => {
         setPreviewImage(reader.result);
@@ -119,40 +158,6 @@ const BookList = () => {
       reader.readAsDataURL(file);
     }
   };
-
-
-
-  useEffect(() => {
-    dispatch(fetchBooksToSell());
-    dispatch(fetchAuthors());
-    dispatch(fetchCategories());
-    if (isAuthenticated && user?.isMember) {
-      dispatch(fetchBooksToRent());
-    }
-  }, [dispatch, isAuthenticated, user]);
-  
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      dispatch(fetchWishlist(user.id)); // Fetch wishlist when user is authenticated
-    }
-  }, [dispatch, isAuthenticated, user]);
-  
-
-  useEffect(() => {
-    // Filter books based on the search query
-    const filtered = books.filter((book) => {
-      // Check if book and book.title exist
-      if (!book || !book.title) return false;
-      
-      // Ensure both strings are available for comparison
-      const bookTitle = book.title.toLowerCase();
-      const searchTerm = localSearchQuery.toLowerCase();
-      
-      return bookTitle.includes(searchTerm);
-    });
-    
-    setFilteredBooks(filtered);
-  }, [localSearchQuery, books]);
 
   const handleWishlistToggle = (book) => {
     if (user) {
@@ -193,7 +198,6 @@ const BookList = () => {
     setShowOrderModal(true);
   };
 
-
   const handleSearch = () => {
     const filtered = books.filter((book) =>
       book.title.toLowerCase().includes(localSearchQuery.toLowerCase())
@@ -201,9 +205,38 @@ const BookList = () => {
     setFilteredBooks(filtered);
   };
 
-
   const handleEditBook = (book) => {
-    navigate(`/edit-book/${book.id}`); // Navigate to the Edit Book page
+    setNewBook({
+      title: book.title,
+      author_id: book.author?.id || '',
+      category_id: book.category?.id || '',
+      description: book.description,
+      published_year: book.published_year,
+      price: book.price,
+      stock: book.stock,
+      image: book.image
+    });
+    setCurrentBookId(book.id);
+    setIsEditing(true);
+    setImageChanged(false);
+    setShowBookForm(true);
+    if (book.image) {
+      setPreviewImage(`http://127.0.0.1:8000/storage/BookImages/${book.image}`);
+    } else {
+      setPreviewImage(null);
+    }
+  };
+
+  const handleDeleteBook = async (bookId) => {
+    if (window.confirm('Are you sure you want to delete this book?')) {
+      try {
+        await dispatch(deleteBookToSell(bookId)).unwrap();
+        toast.success('Book deleted successfully');
+        dispatch(fetchBooksToSell());
+      } catch (error) {
+        toast.error('Failed to delete the book.');
+      }
+    }
   };
 
   const sortedBooks = selectedBook
@@ -226,251 +259,319 @@ const BookList = () => {
     );
   }
 
+  // Admin View - Table Layout
+  if (user?.role === 'admin') {
+    return (
+      <Container className="book-list-container">
+        <h2 className="book-list-title">Books Management</h2>
+        
+        <div className="mb-4">
+          <InputGroup>
+            <Form.Control
+              type="text"
+              placeholder="Search books..."
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
+            />
+          </InputGroup>
+        </div>
+
+        <Button 
+          variant="primary" 
+          onClick={() => {
+            resetForm();
+            setShowBookForm(true);
+          }}
+          className="mb-3"
+        >
+          <FaPlus /> Add New Book
+        </Button>
+
+        <Table striped bordered hover responsive>
+          <thead>
+            <tr>
+              <th>Cover</th>
+              <th>Title</th>
+              <th>Author</th>
+              <th>Category</th>
+              <th>Price</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(localSearchQuery ? filteredBooks : books).map((book) => (
+              <tr key={book.id}>
+                <td>
+                  <img
+                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/50'}
+                    alt={book?.title || 'Book cover'}
+                    style={{ width: '50px', height: 'auto' }}
+                  />
+                </td>
+                <td>{book.title}</td>
+                <td>{book.author?.name || 'N/A'}</td>
+                <td>{book.category?.name || 'N/A'}</td>
+                <td>${book.price}</td>
+                <td>{book.stock}</td>
+                <td>
+                  <Button 
+                    variant="info" 
+                    size="sm" 
+                    onClick={() => handleEditBook(book)}
+                    className="me-2"
+                  >
+                    <FaEdit />
+                  </Button>
+                  <Button 
+                    variant="danger" 
+                    size="sm" 
+                    onClick={() => handleDeleteBook(book.id)}
+                  >
+                    <FaTrash />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+
+        <Offcanvas 
+          show={showBookForm} 
+          onHide={() => {
+            setShowBookForm(false);
+            resetForm();
+          }}
+          placement="bottom"
+        >
+          <Offcanvas.Header closeButton>
+            <Offcanvas.Title>{isEditing ? 'Edit Book' : 'Add New Book'}</Offcanvas.Title>
+          </Offcanvas.Header>
+          <Offcanvas.Body>
+            <Form onSubmit={handleBookFormSubmit}>
+              <Form.Group className="mb-3">
+                <Form.Label>Title</Form.Label>
+                <Form.Control
+                  type="text"
+                  name="title"
+                  value={newBook.title}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Author</Form.Label>
+                <Form.Select
+                  name="author_id"
+                  value={newBook.author_id}
+                  onChange={handleNewBookChange}
+                  required
+                  disabled={authorsLoading}
+                >
+                  <option value="">Select Author</option>
+                  {authors.map(author => (
+                    <option key={author.id} value={author.id}>
+                      {author.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Category</Form.Label>
+                <Form.Select
+                  name="category_id"
+                  value={newBook.category_id}
+                  onChange={handleNewBookChange}
+                  required
+                  disabled={categoriesLoading}
+                >
+                  <option value="">Select Category</option>
+                  {categories.map(category => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Description</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  name="description"
+                  value={newBook.description}
+                  onChange={handleNewBookChange}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Published Year</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="published_year"
+                  value={newBook.published_year}
+                  onChange={handleNewBookChange}
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Price</Form.Label>
+                <Form.Control
+                  type="number"
+                  step="0.01"
+                  name="price"
+                  value={newBook.price}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Stock</Form.Label>
+                <Form.Control
+                  type="number"
+                  name="stock"
+                  value={newBook.stock}
+                  onChange={handleNewBookChange}
+                  required
+                />
+              </Form.Group>
+
+              <Form.Group className="mb-3">
+                <Form.Label>Book Cover</Form.Label>
+                <Form.Control
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                />
+                {previewImage && (
+                  <div className="mt-2">
+                    <img 
+                      src={previewImage} 
+                      alt="Preview" 
+                      style={{ maxWidth: '100px', maxHeight: '100px' }} 
+                    />
+                    {isEditing && !imageChanged && (
+                      <div className="form-text">Leave empty to keep current image</div>
+                    )}
+                  </div>
+                )}
+              </Form.Group>
+
+              <Button variant="primary" type="submit">
+                {isEditing ? 'Update Book' : 'Add Book'}
+              </Button>
+            </Form>
+          </Offcanvas.Body>
+        </Offcanvas>
+
+        <ToastContainer />
+      </Container>
+    );
+  }
+
+  // Customer View - Original Layout
   return (
     <>
       <Container className="book-list-container">
-      <Row>
-        <h2 className="book-list-title">Books</h2>
+        <Row>
+          <h2 className="book-list-title">Books</h2>
 
-         <div className="mb-4 text-center">
-              <Form.Control
-                type="text"
-                placeholder="Search books..."
-                value={localSearchQuery}
-                onChange={(e) => setLocalSearchQuery(e.target.value)}
-              />
+          <div className="mb-4 text-center">
+            <Form.Control
+              type="text"
+              placeholder="Search books..."
+              value={localSearchQuery}
+              onChange={(e) => setLocalSearchQuery(e.target.value)}
+            />
           </div>
 
-        
-        {/* Only show the "Add Book" button if the user is an admin */}
-       {user?.role === 'admin' && (
-          <Button  
-            onClick={() => setShowAddBookForm(true)}
-            className="round"
-          >
-            <FaPlus />
-          </Button>
-        )}
+          <div className="book-list">
+            {selectedBook && (
+              <div className="book-info-container">
+                <div className="info">
+                  <h2>{selectedBook.title}</h2>
+                  <p>{selectedBook.description}</p>
 
-        <div className="book-list">
-          {selectedBook && (
-            <div className="book-info-container">
-              <div className="info">
-                <h2>{selectedBook.title}</h2>
-                <p>{selectedBook.description}</p>
+                  <div className="book-details">
+                    <div className="book-detail">
+                      <i className="fas fa-user"></i>
+                      <span>Author: {selectedBook.author.name}</span>
+                    </div>
 
-                <div className="book-details">
-                  <div className="book-detail">
-                    <i className="fas fa-user"></i>
-                    <span>Author: {selectedBook.author.name}</span>
+                    <div className="book-detail">
+                      <i className="fas fa-tags"></i>
+                      <span>Category: {selectedBook.category.name}</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-dollar-sign"></i>
+                      <span>Price: {selectedBook.price} USD</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-calendar-alt"></i>
+                      <span>Published: {selectedBook.published_year}</span>
+                    </div>
+
+                    <div className="book-detail">
+                      <i className="fas fa-box"></i>
+                      <span>Stock: {selectedBook.stock}</span>
+                    </div>
                   </div>
 
-                  <div className="book-detail">
-                    <i className="fas fa-tags"></i>
-                    <span>Category: {selectedBook.category.name}</span>
-                  </div>
+                  <div className="book-actions">
+                    <i
+                      className="fas fa-cart-plus"
+                      onClick={() => handleAddToCart(selectedBook)}
+                      style={{ color: cartItems[selectedBook?.id] ? '#af002d' : 'black' }}
+                    ></i>
 
-                  <div className="book-detail">
-                    <i className="fas fa-dollar-sign"></i>
-                    <span>Price: {selectedBook.price} USD</span>
-                  </div>
+                    <i
+                      className={`fas fa-heart ${wishlist.some(item => item.id === selectedBook?.id) ? 'red-heart' : ''}`}
+                      onClick={() => handleWishlistToggle(selectedBook)}
+                      style={{ color: wishlist.some(item => item.id === selectedBook?.id) ? '#af002d' : 'black' }}
+                    ></i>
 
-                  <div className="book-detail">
-                    <i className="fas fa-calendar-alt"></i>
-                    <span>Published: {selectedBook.published_year}</span>
-                  </div>
-
-                  <div className="book-detail">
-                    <i className="fas fa-box"></i>
-                    <span>Stock: {selectedBook.stock}</span>
+                    {user?.role === 'customer' && (
+                      <button 
+                        className="order-icon" 
+                        onClick={() => handleOrderBook(selectedBook)} 
+                        style={{ cursor: 'pointer', color: 'blue' }}
+                      >
+                        Order Fast
+                      </button>
+                    )}
                   </div>
                 </div>
-
-                <div className="book-actions">
-                  <i
-                    className="fas fa-cart-plus"
-                    onClick={() => handleAddToCart(selectedBook)}
-                    style={{ color: cartItems[selectedBook?.id] ? '#af002d' : 'black' }}
-                  ></i>
-
-                  <i
-                    className={`fas fa-heart ${wishlist.some(item => item.id === selectedBook?.id) ? 'red-heart' : ''}`}
-                    onClick={() => handleWishlistToggle(selectedBook)}
-                    style={{ color: wishlist.some(item => item.id === selectedBook?.id) ? '#af002d' : 'black' }}
-                  ></i>
-
-                  {user?.role === 'customer' && (
-                    <button 
-                      className="order-icon" 
-                      onClick={() => handleOrderBook(selectedBook)} 
-                      style={{ cursor: 'pointer', color: 'blue' }}
-                    >
-                      Order Fast
-                    </button>
-                  )}
-
-                  
-                  {/* Show Edit icon if the user is admin */}
-                  {user?.role === 'admin' && (
-                    <FaEdit
-                      className="edit-icon"
-                      onClick={() => handleEditBook(selectedBook)}
-                      style={{ cursor: 'pointer'}}
-                    />
-                  )}
-                </div>
               </div>
-            </div>
-          )}
-          {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
-            book && (
-              <div key={book.id} className="book-item">  {/* Make sure key is unique */}
-                <img
-                  onClick={() => handleBookClick(book)}
-                  src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.jpeg'}
-                  alt={book?.title || 'Book cover'}
-                  className={`book-image ${selectedBook?.id === book?.id ? 'large-image' : ''}`}
-                />
-              </div>
-            )
-          ))}
-        </div>
-        <Offcanvas 
-        show={showAddBookForm} 
-        onHide={() => setShowAddBookForm(false)}
-        placement="bottom"
-        style={{ height: '80vh' }}
-      >
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Add New Book</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
-          <Form onSubmit={handleAddBookSubmit}>
-            <Form.Group className="mb-3">
-              <Form.Label>Title</Form.Label>
-              <Form.Control
-                type="text"
-                name="title"
-                value={newBook.title}
-                onChange={handleNewBookChange}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Author</Form.Label>
-              <Form.Select
-                name="author_id"
-                value={newBook.author_id}
-                onChange={handleNewBookChange}
-                required
-                disabled={authorsLoading}
-              >
-                <option value="">Select Author</option>
-                {authors.map(author => (
-                  <option key={author.id} value={author.id}>
-                    {author.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Category</Form.Label>
-              <Form.Select
-                name="category_id"
-                value={newBook.category_id}
-                onChange={handleNewBookChange}
-                required
-                disabled={categoriesLoading}
-              >
-                <option value="">Select Category</option>
-                {categories.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
-              </Form.Select>
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Description</Form.Label>
-              <Form.Control
-                as="textarea"
-                name="description"
-                value={newBook.description}
-                onChange={handleNewBookChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Published Year</Form.Label>
-              <Form.Control
-                type="number"
-                name="published_year"
-                value={newBook.published_year}
-                onChange={handleNewBookChange}
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Price</Form.Label>
-              <Form.Control
-                type="number"
-                step="0.01"
-                name="price"
-                value={newBook.price}
-                onChange={handleNewBookChange}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Stock</Form.Label>
-              <Form.Control
-                type="number"
-                name="stock"
-                value={newBook.stock}
-                onChange={handleNewBookChange}
-                required
-              />
-            </Form.Group>
-
-            <Form.Group className="mb-3">
-              <Form.Label>Book Cover</Form.Label>
-              <Form.Control
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-              />
-              {previewImage && (
-                <div className="mt-2">
-                  <img 
-                    src={previewImage} 
-                    alt="Preview" 
-                    style={{ maxWidth: '100px', maxHeight: '100px' }} 
+            )}
+            {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
+              book && (
+                <div key={book.id} className="book-item">
+                  <img
+                    onClick={() => handleBookClick(book)}
+                    src={book?.image && `http://127.0.0.1:8000/storage/BookImages/${book.image}`}
+                    alt={book?.title || 'Book cover'}
+                    className={`book-image ${selectedBook?.id === book?.id ? 'large-image' : ''}`}
                   />
                 </div>
-              )}
-            </Form.Group>
-
-            <Button variant="primary" type="submit">
-              Add Book
-            </Button>
-          </Form>
-        </Offcanvas.Body>
-      </Offcanvas>
-
-      </Row>
-      {selectedBookForOrder && (
-        <OrderFastModal
-          show={showOrderModal}
-          handleClose={() => setShowOrderModal(false)}
-          book={selectedBookForOrder}
-          userId={user?.id}
-        />
-      )}
-    </Container>
+              )
+            ))}
+          </div>
+        </Row>
+        {selectedBookForOrder && (
+          <OrderFastModal
+            show={showOrderModal}
+            handleClose={() => setShowOrderModal(false)}
+            book={selectedBookForOrder}
+            userId={user?.id}
+          />
+        )}
+      </Container>
+      <ToastContainer />
     </>
   );
 };
