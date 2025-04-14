@@ -38,6 +38,7 @@ const RentBooks = () => {
   const [previewImage, setPreviewImage] = useState(null);
   const [showReserveModal, setShowReserveModal] = useState(false);
   const [selectedBookForReserve, setSelectedBookForReserve] = useState(null);
+  const [imageChanged, setImageChanged] = useState(false);
 
   const { books = [], loading: booksLoading, error: booksError } = useSelector((state) => state.book_to_rent);
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -106,11 +107,12 @@ const RentBooks = () => {
       availability_status: book.availability_status,
       condition: book.condition,
       min_rental_period_days: book.min_rental_period_days,
-      image: null
+      image: book.image
     });
     setPreviewImage(book.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : null);
     setSelectedBookForEdit(book);
     setIsEditMode(true);
+    setImageChanged(false);
     setShowAddBookForm(true);
   };
 
@@ -141,6 +143,7 @@ const RentBooks = () => {
         ...prev,
         image: file
       }));
+      setImageChanged(true);
       
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -173,9 +176,10 @@ const RentBooks = () => {
     setPreviewImage(null);
     setIsEditMode(false);
     setSelectedBookForEdit(null);
+    setImageChanged(false);
   };
 
-  const handleAddBookSubmit = async (e) => {
+  const handleAddBook = async (e) => {
     e.preventDefault();
     try {
       const formData = new FormData();
@@ -197,22 +201,61 @@ const RentBooks = () => {
         formData.append('image_file', newBook.image);
       }
 
-      if (isEditMode && selectedBookForEdit) {
-        await dispatch(updateBookToRent({ 
-          id: selectedBookForEdit.id, 
-          bookData: formData 
-        })).unwrap();
-        toast.success('Book updated successfully');
-      } else {
-        await dispatch(addBookToRent(formData)).unwrap();
-        toast.success('Book added for rent successfully');
-      }
+      await dispatch(addBookToRent(formData)).unwrap();
+      toast.success('Book added for rent successfully');
       
       setShowAddBookForm(false);
       resetForm();
       dispatch(fetchBooksToRent());
     } catch (error) {
-      toast.error(isEditMode ? 'Failed to update book' : 'Failed to add book for rent');
+      console.error('Add book error:', error);
+      toast.error('Failed to add book for rent');
+    }
+  };
+
+  const handleEditBookSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const bookData = {
+        title: newBook.title,
+        author_id: newBook.author_id,
+        category_id: newBook.category_id,
+        description: newBook.description,
+        published_year: newBook.published_year,
+        rental_price: newBook.rental_price,
+        rental_period_days: newBook.rental_period_days,
+        late_fee_per_day: newBook.late_fee_per_day,
+        availability_status: newBook.availability_status,
+        condition: newBook.condition,
+        min_rental_period_days: newBook.min_rental_period_days,
+      };
+
+      if (imageChanged && newBook.image) {
+        bookData.image = newBook.image.name;
+      } else if (!imageChanged) {
+        bookData.image = selectedBookForEdit.image;
+      }
+
+      await dispatch(updateBookToRent({ 
+        id: selectedBookForEdit.id, 
+        bookData 
+      })).unwrap();
+      toast.success('Book updated successfully');
+      
+      setShowAddBookForm(false);
+      resetForm();
+      dispatch(fetchBooksToRent());
+    } catch (error) {
+      console.error('Update book error:', error);
+      toast.error('Failed to update book');
+    }
+  };
+
+  const handleAddBookSubmit = (e) => {
+    if (isEditMode) {
+      handleEditBookSubmit(e);
+    } else {
+      handleAddBook(e);
     }
   };
 
@@ -282,10 +325,10 @@ const RentBooks = () => {
           </thead>
           <tbody>
             {(localSearchQuery ? filteredBooks : books).map((book) => (
-              <tr key={book.id}>
+              <tr key={`book-row-${book.id}`}>
                 <td>
                   <img
-                    src={book?.image && `http://127.0.0.1:8000/storage/BookImages/${book.image}` }
+                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/50'}
                     alt={book?.title || 'Book cover'}
                     style={{ width: '50px', height: 'auto' }}
                   />
@@ -363,7 +406,7 @@ const RentBooks = () => {
                 >
                   <option value="">Select Author</option>
                   {authors.map(author => (
-                    <option key={author.id} value={author.id}>
+                    <option key={`author-${author.id}`} value={author.id}>
                       {author.name}
                     </option>
                   ))}
@@ -381,7 +424,7 @@ const RentBooks = () => {
                 >
                   <option value="">Select Category</option>
                   {categories.map(category => (
-                    <option key={category.id} value={category.id}>
+                    <option key={`category-${category.id}`} value={category.id}>
                       {category.name}
                     </option>
                   ))}
@@ -497,9 +540,12 @@ const RentBooks = () => {
                       alt="Preview" 
                       style={{ maxWidth: '100px', maxHeight: '100px' }} 
                     />
+                    {isEditMode && !imageChanged && (
+                      <div className="form-text">Leave empty to keep current image</div>
+                    )}
                   </div>
                 )}
-                {isEditMode && !previewImage && selectedBookForEdit?.image && (
+                {isEditMode && !imageChanged && selectedBookForEdit?.image && (
                   <div className="mt-2">
                     <p>Current Image:</p>
                     <img 
@@ -536,8 +582,11 @@ const RentBooks = () => {
                 type="text"
                 placeholder="Search rental books..."
                 value={localSearchQuery}
-                onChange={(e) =>  setLocalSearchQuery(e.target.value)}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
               />
+              <Button variant="outline-secondary" onClick={handleSearch}>
+                <FaSearch />
+              </Button>
             </InputGroup>
           </div>
 
@@ -608,12 +657,12 @@ const RentBooks = () => {
                 </div>
               </div>
             )}
-            {(localSearchQuery ? filteredBooks : sortedBooks).map((book) => (
+            {(localSearchQuery ? filteredBooks : sortedBooks).map((book, index) => (
               book && (
-                <div key={book.id} className="book-item">
+                <div key={`book-item-${book.id}-${index}`} className="book-item">
                   <img
                     onClick={() => handleBookClick(book)}
-                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.jpeg'}
+                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/150'}
                     alt={book?.title || 'Book cover'}
                     className={`book-image ${selectedBook?.id === book?.id ? 'large-image' : ''}`}
                   />
