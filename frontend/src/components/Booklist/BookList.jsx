@@ -74,7 +74,8 @@ const BookList = () => {
     setFilteredBooks(filtered);
   }, [localSearchQuery, books]);
 
-  const handleBookFormSubmit = async (e) => {
+  // Separate handler for adding a new book
+  const handleAddBook = async (e) => {
     e.preventDefault();
     try {
       const formData = new FormData();
@@ -87,26 +88,64 @@ const BookList = () => {
       formData.append('price', newBook.price);
       formData.append('stock', newBook.stock);
       
-      if (imageChanged && newBook.image instanceof File) {
-        formData.append('image_file', newBook.image);
+      if (newBook.image instanceof File) {
         formData.append('image', newBook.image.name);
-      } else if (isEditing && !imageChanged) {
-        formData.append('image', newBook.image);
+        formData.append('image_file', newBook.image);
       }
-  
-      if (isEditing) {
-        await dispatch(updateBookToSell({ id: currentBookId, bookData: formData })).unwrap();
-        toast.success('Book updated successfully');
-      } else {
-        await dispatch(addBookToSell(formData)).unwrap();
-        toast.success('Book added successfully');
-      }
+
+      await dispatch(addBookToSell(formData)).unwrap();
+      toast.success('Book added successfully');
       
       setShowBookForm(false);
       resetForm();
       dispatch(fetchBooksToSell());
     } catch (error) {
-      toast.error(`Failed to ${isEditing ? 'update' : 'add'} the book.`);
+      toast.error('Failed to add the book.');
+    }
+  };
+
+  // Separate handler for editing a book
+  const handleEditBookSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const bookData = {
+        title: newBook.title,
+        author_id: newBook.author_id,
+        category_id: newBook.category_id,
+        description: newBook.description,
+        published_year: newBook.published_year,
+        price: newBook.price,
+        stock: newBook.stock,
+      };
+
+      // Only include image if it was changed
+      if (imageChanged && newBook.image instanceof File) {
+        bookData.image = newBook.image.name;
+      } else if (!imageChanged) {
+        // Keep the existing image if not changed
+        bookData.image = newBook.image;
+      }
+
+      await dispatch(updateBookToSell({ 
+        id: currentBookId, 
+        bookData 
+      })).unwrap();
+      toast.success('Book updated successfully');
+      
+      setShowBookForm(false);
+      resetForm();
+      dispatch(fetchBooksToSell());
+    } catch (error) {
+      toast.error('Failed to update the book.');
+    }
+  };
+
+  // Unified form submission handler
+  const handleBookFormSubmit = (e) => {
+    if (isEditing) {
+      handleEditBookSubmit(e);
+    } else {
+      handleAddBook(e);
     }
   };
 
@@ -273,6 +312,9 @@ const BookList = () => {
               value={localSearchQuery}
               onChange={(e) => setLocalSearchQuery(e.target.value)}
             />
+            <Button variant="outline-secondary" onClick={handleSearch}>
+              <FaSearch />
+            </Button>
           </InputGroup>
         </div>
 
@@ -300,11 +342,11 @@ const BookList = () => {
             </tr>
           </thead>
           <tbody>
-            {(localSearchQuery ? filteredBooks : books).map((book) => (
-              <tr key={book.id}>
+          {(localSearchQuery ? filteredBooks : books).map((book) => (
+               <tr key={book.id}>
                 <td>
                   <img
-                    src={book?.image ? `http://127.0.0.1:8000/storage/BookImages/${book.image}` : 'https://via.placeholder.com/50'}
+                    src={book?.image && `http://127.0.0.1:8000/storage/BookImages/${book.image}`}
                     alt={book?.title || 'Book cover'}
                     style={{ width: '50px', height: 'auto' }}
                   />
@@ -480,12 +522,17 @@ const BookList = () => {
           <h2 className="book-list-title">Books</h2>
 
           <div className="mb-4 text-center">
-            <Form.Control
-              type="text"
-              placeholder="Search books..."
-              value={localSearchQuery}
-              onChange={(e) => setLocalSearchQuery(e.target.value)}
-            />
+           <InputGroup>
+              <Form.Control
+                type="text"
+                placeholder="Search books..."
+                value={localSearchQuery}
+                onChange={(e) => setLocalSearchQuery(e.target.value)}
+              />
+              <Button variant="outline-secondary" onClick={handleSearch}>
+                <FaSearch />
+              </Button>
+            </InputGroup>
           </div>
 
           <div className="book-list">

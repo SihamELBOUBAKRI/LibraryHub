@@ -70,6 +70,13 @@ class BookToRentController extends Controller
             'min_rental_period_days' => 'sometimes|integer|min:1',
         ]);
 
+        if ($request->hasFile('image_file')) {
+            $file = $request->file('image_file');
+            $filename = $file->getClientOriginalName();
+            $file->storeAs('BookImages', $filename); // Store the file
+            $validatedData['image'] = $filename; // Save the filename
+        }
+
         $book->update($validatedData);
         
         return response()->json(['message' => 'Book updated successfully', 'book' => $book], 200);
