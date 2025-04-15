@@ -876,7 +876,7 @@ const Purchases = () => {
                       <td>{user ? `${user.name} (ID: ${user.id})` : `User ${order.user_id}`}</td>
                       <td>{book ? `${book.title} (ID: ${book.id})` : `Book ${order.book_id}`}</td>
                       <td>{order.quantity}</td>
-                      <td>${order.total_price.toFixed(2)}</td>
+                      <td>${Number(order.total_price).toFixed(2)}</td>
                       <td>{order.payment_method}</td>
                       <td className={getStatusClass(order.status)}>
                         <select

@@ -38,6 +38,7 @@ const Rentals = () => {
   const { reservations = [], loading: reservationsLoading } = useSelector((state) => state.reservations || {});
   const { memberships = [], loading: membershipsLoading } = useSelector((state) => state.membership);
 
+
   // Filter memberships to only show users with membership cards
   const membersWithCards = memberships
     .filter(card => card.user)
@@ -475,7 +476,7 @@ const Rentals = () => {
                   <tr key={rental.id}>
                     <td>{rental.id}</td>
                     <td>{rental.user?.name || 'N/A'}</td>
-                    <td>{rental.membership_card_number || 'N/A'}</td>
+                    <td>{rental.active_rental.membership_card_number || 'N/A'}</td>
                     <td>{new Date(rental.rental_date).toLocaleDateString()}</td>
                     <td>{new Date(rental.due_date).toLocaleDateString()}</td>
                     <td>{rental.return_date ? new Date(rental.return_date).toLocaleDateString() : 'Not returned'}</td>
