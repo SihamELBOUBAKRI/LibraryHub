@@ -30,6 +30,7 @@ class TransactionController extends Controller
                 'order_id' => 'nullable|exists:orders,id',
                 'membership_card_id' => 'nullable|exists:membership_cards,id',
             ]);
+            $transactionId = $validated['transaction_id'] ?? 'TXN-' . uniqid();
 
             // Validate the specific conditions for 'Order' or 'Membership' transaction types
             if ($validated['transaction_type'] === 'Order' && !$validated['order_id']) {
@@ -51,7 +52,7 @@ class TransactionController extends Controller
                 'user_id' => $validated['user_id'],
                 'amount' => $validated['amount'],
                 'payment_method' => $validated['payment_method'],
-                'transaction_id' => $validated['transaction_id'],
+                'transaction_id' => $transactionId,
                 'transaction_type' => $validated['transaction_type'],
                 'payment_status' => 'Completed', // You can update this after payment confirmation
                 'order_id' => $validated['transaction_type'] === 'Order' ? $validated['order_id'] : null,
@@ -157,20 +158,21 @@ public function update(Request $request, $id)
     DB::beginTransaction();
 
     try {
-        // Validate incoming data
-        $validated = $request->validate([
-            'amount' => 'required|numeric|min:0',
-            'payment_method' => 'required|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
-            'transaction_id' => 'nullable|string',
-        ]);
-
         // Find the transaction
         $transaction = Transaction::findOrFail($id);
 
-        // Update the transaction fields
-        $transaction->amount = $validated['amount'];
-        $transaction->payment_method = $validated['payment_method'];
-        $transaction->transaction_id = $validated['transaction_id'] ?? $transaction->transaction_id; // Optional
+        // Only validate fields that are present in the request
+        $validated = $request->validate([
+            'user_id' => 'sometimes|exists:users,id',
+            'amount' => 'sometimes|numeric|min:0',
+            'payment_method' => 'sometimes|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
+            'transaction_id' => 'sometimes|string',
+        ]);
+
+        // Update only the fields that were provided
+        foreach ($validated as $key => $value) {
+            $transaction->{$key} = $value;
+        }
 
         $transaction->save();
 

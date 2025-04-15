@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEdit, faTrash, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
-import { fetchTransactions, deleteTransaction, updateTransaction, addTransaction } from "../../features/transactions/transactionsSlice";
+import { faEdit, faTrash, faPlus, faTimes, faSearch, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { 
+  fetchTransactions, 
+  deleteTransaction, 
+  updateTransaction, 
+  addTransaction,
+  updateTransactionStatus 
+} from "../../features/transactions/transactionsSlice";
 import { fetchPurchases, deletePurchase, updatePurchase, addPurchase } from "../../features/purchases/purchasesSlice";
-import { fetchOrders, deleteOrder, updateOrder, createOrder } from "../../features/orders/orderSlice";
+import { fetchOrders, deleteOrder, updateOrder } from "../../features/orders/orderSlice";
+import { fetchBooksToSell } from "../../features/book_to_sell/book_to_sellSlice";
+import { fetchUsers } from "../../features/users/userSlice";
 import Select from 'react-select';
 import "../AdminDashboard/Purchases.css";
 
@@ -14,44 +22,172 @@ const Purchases = () => {
   const [editItem, setEditItem] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({});
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentUpdatingId, setCurrentUpdatingId] = useState(null);
 
-  const { transactions = [], loading: transactionLoading } = useSelector((state) => state.transactions);
+  // Redux state selectors
+  const { 
+    transactions = [], 
+    loading: transactionLoading, 
+    statusUpdateLoading 
+  } = useSelector((state) => state.transactions);
+  
   const { purchases = [], loading: purchaseLoading } = useSelector((state) => state.purchases);
   const { orders = [], loading: orderLoading } = useSelector((state) => state.orders);
+  const { books = [], loading: booksLoading } = useSelector((state) => state.book_to_sell);
+  const { users = [], loading: usersLoading } = useSelector((state) => state.users);
+  const currentUser = useSelector((state) => state.auth.user);
 
   useEffect(() => {
     dispatch(fetchTransactions());
     dispatch(fetchPurchases());
     dispatch(fetchOrders());
+    dispatch(fetchBooksToSell());
+    dispatch(fetchUsers());
   }, [dispatch]);
+
+  // Filter orders by search term
+  const filteredOrders = orders.filter(order => 
+    order.id.toString().includes(searchTerm.toLowerCase()) ||
+    (order.transaction_id && order.transaction_id.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const handleSectionClick = (section) => {
     setSelectedSection(section);
     setEditItem(null);
     setIsModalOpen(false);
+    setSearchTerm('');
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
-      switch(selectedSection) {
-        case 'transactions': dispatch(deleteTransaction(id)); break;
-        case 'purchases': dispatch(deletePurchase(id)); break;
-        case 'orders': dispatch(deleteOrder(id)); break;
-        default: break;
+      try {
+        switch(selectedSection) {
+          case 'transactions': 
+            await dispatch(deleteTransaction(id)).unwrap();
+            break;
+          case 'purchases': 
+            await dispatch(deletePurchase(id)).unwrap();
+            break;
+          case 'orders': 
+            await dispatch(deleteOrder(id)).unwrap();
+            break;
+          default: break;
+        }
+      } catch (error) {
+        alert(`Failed to delete: ${error}`);
       }
     }
   };
 
   const handleEdit = (item) => {
     setEditItem(item);
-    setFormData(item);
+    
+    const user = users.find(u => u.id === item.user_id);
+    
+    // Prepare the initial form data based on the selected section
+    let initialFormData = {
+      ...item,
+      user_id: user ? { 
+        value: user.id, 
+        label: `${user.name} (ID: ${user.id})` 
+      } : null
+    };
+  
+    // Special handling for transactions
+    if (selectedSection === 'transactions') {
+      initialFormData = {
+        ...initialFormData,
+        // For transactions, we need to ensure all required fields are included
+        amount: item.amount,
+        payment_method: item.payment_method,
+        payment_status: item.payment_status,
+        transaction_type: item.transaction_type,
+        // Include relationship IDs if they exist
+        ...(item.order_id && { order_id: item.order_id }),
+        ...(item.membership_card_id && { membership_card_id: item.membership_card_id })
+      };
+      
+      // If it's an order transaction, set the order_id in select format
+      if (item.order_id) {
+        const order = orders.find(o => o.id === item.order_id);
+        if (order) {
+          initialFormData.order_id = {
+            value: order.id,
+            label: `Order #${order.id} ($${order.total_price})`
+          };
+        }
+      }
+    }
+    
+    // For purchases/orders, include book_id if it exists
+    if (item.book_id) {
+      const book = books.find(b => b.id === item.book_id);
+      if (book) {
+        initialFormData.book_id = { 
+          value: book.id, 
+          label: `${book.title} (ID: ${book.id})` 
+        };
+      }
+    }
+    
+    setFormData(initialFormData);
     setIsModalOpen(true);
+  };
+
+  const handleTransactionStatusChange = async (transactionId, newStatus) => {
+    if (window.confirm(`Are you sure you want to update status to ${newStatus}?`)) {
+      setCurrentUpdatingId(transactionId);
+      try {
+        await dispatch(updateTransactionStatus({ 
+          id: transactionId, 
+          payment_status: newStatus 
+        })).unwrap();
+      } catch (error) {
+        alert(`Failed to update status: ${error}`);
+      } finally {
+        setCurrentUpdatingId(null);
+      }
+    }
+  };
+
+  const handleOrderStatusChange = async (orderId, newStatus) => {
+    if (window.confirm(`Are you sure you want to update status to ${newStatus}?`)) {
+      try {
+        await dispatch(updateOrder({ 
+          id: orderId, 
+          status: newStatus 
+        })).unwrap();
+      } catch (error) {
+        alert(`Failed to update status: ${error}`);
+      }
+    }
   };
 
   const handleAddNew = () => {
     setEditItem(null);
-    setFormData({});
+    const defaults = {
+      purchases: {
+        user_id: null,
+        book_id: null,
+        quantity: 1,
+        price_per_unit: 0,
+        total_price: 0,
+        purchase_date: new Date().toISOString().split('T')[0],
+        payment_method: 'Credit Card',
+        payment_status: 'pending'
+      },
+      transactions: {
+        user_id: currentUser?.id || '',
+        amount: 0,
+        payment_method: 'Credit Card',
+        transaction_type: 'Order',
+        payment_status: 'Pending',
+        order_id: null,
+        membership_card_id: null
+      }
+    };
+    setFormData(defaults[selectedSection] || {});
     setIsModalOpen(true);
   };
 
@@ -61,35 +197,132 @@ const Purchases = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: value,
+      ...(name === 'quantity' || name === 'price_per_unit') && selectedSection === 'purchases' ? {
+        total_price: (name === 'quantity' ? value * (prev.price_per_unit || 0) : (prev.quantity || 0) * value)
+      } : {}
+    }));
   };
 
-  const handleFormSubmit = (e) => {
+  const handleUserSelect = (selectedOption) => {
+    setFormData(prev => ({
+      ...prev,
+      user_id: selectedOption
+    }));
+  };
+
+  const handleBookSelect = (selectedOption) => {
+    setFormData(prev => ({
+      ...prev,
+      book_id: selectedOption
+    }));
+  };
+
+  const handleOrderSelect = (selectedOption) => {
+    setFormData(prev => ({
+      ...prev,
+      order_id: selectedOption.value
+    }));
+  };
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     
-    if (editItem) {
-      switch(selectedSection) {
-        case 'transactions': 
-          dispatch(updateTransaction({ id: editItem.id, ...formData }));
-          break;
-        case 'purchases':
-          dispatch(updatePurchase({ id: editItem.id, ...formData }));
-          break;
-        case 'orders':
-          dispatch(updateOrder({ id: editItem.id, ...formData }));
-          break;
-        default: break;
+    try {
+      if (editItem) {
+        let updatedData = {};
+        
+        if (selectedSection === 'transactions') {
+          updatedData = {
+            // Always include these required fields
+            amount: formData.amount,
+            payment_method: formData.payment_method,
+            payment_status: formData.payment_status,
+            transaction_type: formData.transaction_type,
+            // Include user ID (either from select or direct value)
+            user_id: formData.user_id?.value || formData.user_id,
+            // Include relationship IDs if they exist
+            ...(formData.order_id && { 
+              order_id: formData.order_id?.value || formData.order_id 
+            }),
+            ...(formData.membership_card_id && { 
+              membership_card_id: formData.membership_card_id 
+            })
+          };
+        } else {
+          updatedData = {
+            ...formData,
+            user_id: formData.user_id?.value || formData.user_id,
+            book_id: formData.book_id?.value || formData.book_id,
+            ...(selectedSection === 'purchases' && {
+              total_price: formData.price_per_unit * formData.quantity
+            })
+          };
+        }
+  
+        switch(selectedSection) {
+          case 'transactions': 
+            await dispatch(updateTransaction({ 
+              id: editItem.id, 
+              ...updatedData 
+            })).unwrap();
+            break;
+          case 'purchases':
+            await dispatch(updatePurchase({ 
+              id: editItem.id, 
+              ...updatedData 
+            })).unwrap();
+            break;
+          case 'orders':
+            await dispatch(updateOrder({ 
+              id: editItem.id, 
+              ...updatedData 
+            })).unwrap();
+            break;
+          default: break;
+        }
+      } else {
+        // For new items, include all required fields
+        const submissionData = {
+          ...formData,
+          user_id: formData.user_id?.value || formData.user_id,
+          book_id: formData.book_id?.value || formData.book_id,
+          ...(selectedSection === 'purchases' && {
+            total_price: formData.price_per_unit * formData.quantity
+          })
+        };
+
+        // For transactions, ensure required fields are included
+        if (selectedSection === 'transactions') {
+          submissionData.transaction_id = 'TXN-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+          
+          // If it's an Order transaction, ensure order_id is provided
+          if (formData.transaction_type === 'Order' && !formData.order_id) {
+            throw new Error('Order ID is required for Order transactions');
+          }
+          
+          // If it's a Membership transaction, ensure membership_card_id is provided
+          if (formData.transaction_type === 'Membership' && !formData.membership_card_id) {
+            throw new Error('Membership Card ID is required for Membership transactions');
+          }
+        }
+
+        switch(selectedSection) {
+          case 'transactions': 
+            await dispatch(addTransaction(submissionData)).unwrap();
+            break;
+          case 'purchases': 
+            await dispatch(addPurchase(submissionData)).unwrap();
+            break;
+          default: break;
+        }
       }
-    } else {
-      switch(selectedSection) {
-        case 'transactions': dispatch(addTransaction(formData)); break;
-        case 'purchases': dispatch(addPurchase(formData)); break;
-        case 'orders': dispatch(createOrder(formData)); break;
-        default: break;
-      }
+      setIsModalOpen(false);
+    } catch (error) {
+      alert(`Operation failed: ${error.message || error}`);
     }
-    
-    setIsModalOpen(false);
   };
 
   const getStatusClass = (status) => {
@@ -110,21 +343,93 @@ const Purchases = () => {
     }
   };
 
+  // Prepare user and book options for Select components
+  const userOptions = users.map(user => ({
+    value: user.id,
+    label: `${user.name} (ID: ${user.id})`
+  }));
+
+  const bookOptions = books.map(book => ({
+    value: book.id,
+    label: `${book.title} (ID: ${book.id})`
+  }));
+
+  const orderOptions = orders.map(order => ({
+    value: order.id,
+    label: `Order #${order.id} ($${order.total_price})`
+  }));
+
   const renderModalContent = () => {
     switch(selectedSection) {
       case 'transactions':
         return (
           <>
             <div className="form-group">
-              <label>Amount</label>
+              <label>User</label>
+              <Select
+                options={userOptions}
+                value={formData.user_id}
+                onChange={handleUserSelect}
+                placeholder="Search user..."
+                isSearchable
+                isLoading={usersLoading}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Amount ($)</label>
               <input 
                 type="number" 
                 name="amount" 
                 value={formData.amount || ''} 
                 onChange={handleInputChange}
-                required
+                min="0"
+                step="0.01"
+                required={!editItem}
               />
             </div>
+            <div className="form-group">
+              <label>Transaction Type</label>
+              <select 
+                name="transaction_type" 
+                value={formData.transaction_type || ''} 
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Select type...</option>
+                <option value="Order">Order</option>
+                <option value="Membership">Membership</option>
+              </select>
+            </div>
+            
+            {formData.transaction_type === 'Order' && (
+              <div className="form-group">
+                <label>Order</label>
+                <Select
+                  options={orderOptions}
+                  value={orderOptions.find(opt => opt.value === formData.order_id)}
+                  onChange={handleOrderSelect}
+                  placeholder="Select order..."
+                  isSearchable
+                  required={!editItem}
+                />
+              </div>
+            )}
+            
+            {formData.transaction_type === 'Membership' && (
+              <div className="form-group">
+                <label>Membership Card ID</label>
+                <input
+                  type="text"
+                  name="membership_card_id"
+                  value={formData.membership_card_id || ''}
+                  onChange={handleInputChange}
+                  placeholder="Enter membership card ID"
+                  required={!editItem}
+                />
+              </div>
+            )}
+            
             <div className="form-group">
               <label>Payment Method</label>
               <select 
@@ -133,7 +438,7 @@ const Purchases = () => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
+                <option value="">Select method...</option>
                 <option value="Credit Card">Credit Card</option>
                 <option value="PayPal">PayPal</option>
                 <option value="Bank Transfer">Bank Transfer</option>
@@ -148,7 +453,7 @@ const Purchases = () => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
+                <option value="">Select status...</option>
                 <option value="Pending">Pending</option>
                 <option value="Completed">Completed</option>
                 <option value="Failed">Failed</option>
@@ -161,12 +466,26 @@ const Purchases = () => {
         return (
           <>
             <div className="form-group">
-              <label>Book ID</label>
-              <input 
-                type="text" 
-                name="book_id" 
-                value={formData.book_id || ''} 
-                onChange={handleInputChange}
+              <label>User</label>
+              <Select
+                options={userOptions}
+                value={formData.user_id}
+                onChange={handleUserSelect}
+                placeholder="Search user..."
+                isSearchable
+                isLoading={usersLoading}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Book</label>
+              <Select
+                options={bookOptions}
+                value={formData.book_id}
+                onChange={handleBookSelect}
+                placeholder="Search book..."
+                isSearchable
+                isLoading={booksLoading}
                 required
               />
             </div>
@@ -182,7 +501,7 @@ const Purchases = () => {
               />
             </div>
             <div className="form-group">
-              <label>Price Per Unit</label>
+              <label>Price Per Unit ($)</label>
               <input 
                 type="number" 
                 name="price_per_unit" 
@@ -194,6 +513,43 @@ const Purchases = () => {
               />
             </div>
             <div className="form-group">
+              <label>Total Price ($)</label>
+              <input 
+                type="number" 
+                name="total_price" 
+                value={formData.total_price || ''} 
+                onChange={handleInputChange}
+                min="0"
+                step="0.01"
+                readOnly
+              />
+            </div>
+            <div className="form-group">
+              <label>Purchase Date</label>
+              <input 
+                type="date" 
+                name="purchase_date" 
+                value={formData.purchase_date || ''} 
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Payment Method</label>
+              <select 
+                name="payment_method" 
+                value={formData.payment_method || ''} 
+                onChange={handleInputChange}
+                required
+              >
+                <option value="">Select method...</option>
+                <option value="Credit Card">Credit Card</option>
+                <option value="PayPal">PayPal</option>
+                <option value="Bank Transfer">Bank Transfer</option>
+                <option value="Cash on Delivery">Cash on Delivery</option>
+              </select>
+            </div>
+            <div className="form-group">
               <label>Payment Status</label>
               <select 
                 name="payment_status" 
@@ -201,7 +557,7 @@ const Purchases = () => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
+                <option value="">Select status...</option>
                 <option value="pending">Pending</option>
                 <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
@@ -213,6 +569,41 @@ const Purchases = () => {
       case 'orders':
         return (
           <>
+            <div className="form-group">
+              <label>User</label>
+              <Select
+                options={userOptions}
+                value={formData.user_id}
+                onChange={handleUserSelect}
+                placeholder="Search user..."
+                isSearchable
+                isLoading={usersLoading}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Book</label>
+              <Select
+                options={bookOptions}
+                value={formData.book_id}
+                onChange={handleBookSelect}
+                placeholder="Search book..."
+                isSearchable
+                isLoading={booksLoading}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Quantity</label>
+              <input 
+                type="number" 
+                name="quantity" 
+                value={formData.quantity || ''} 
+                onChange={handleInputChange}
+                min="1"
+                required
+              />
+            </div>
             <div className="form-group">
               <label>Shipping Address</label>
               <input 
@@ -231,7 +622,7 @@ const Purchases = () => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
+                <option value="">Select status...</option>
                 <option value="Pending">Pending</option>
                 <option value="Processing">Processing</option>
                 <option value="Completed">Completed</option>
@@ -246,49 +637,13 @@ const Purchases = () => {
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
+                <option value="">Select method...</option>
                 <option value="Credit Card">Credit Card</option>
                 <option value="PayPal">PayPal</option>
                 <option value="Bank Transfer">Bank Transfer</option>
                 <option value="Cash on Delivery">Cash on Delivery</option>
               </select>
             </div>
-            {formData.payment_method === 'Credit Card' && (
-              <>
-                <div className="form-group">
-                  <label>Card Holder Name</label>
-                  <input 
-                    type="text" 
-                    name="card_holder_name" 
-                    value={formData.card_holder_name || ''} 
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Last 4 Digits</label>
-                  <input 
-                    type="text" 
-                    name="card_last_four" 
-                    value={formData.card_last_four || ''} 
-                    onChange={handleInputChange}
-                    maxLength="4"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Expiration Date</label>
-                  <input 
-                    type="text" 
-                    name="expiration_date" 
-                    value={formData.expiration_date || ''} 
-                    onChange={handleInputChange}
-                    placeholder="MM/YY"
-                    required
-                  />
-                </div>
-              </>
-            )}
           </>
         );
       
@@ -359,9 +714,22 @@ const Purchases = () => {
       <div className="table-section">
         <div className="table-header">
           <h2>{selectedSection.charAt(0).toUpperCase() + selectedSection.slice(1)}</h2>
-          <button className="add-btn" onClick={handleAddNew}>
-            <FontAwesomeIcon icon={faPlus} /> Add New
-          </button>
+          {selectedSection !== 'orders' && (
+            <button className="add-btn" onClick={handleAddNew}>
+              <FontAwesomeIcon icon={faPlus} /> Add New
+            </button>
+          )}
+          {selectedSection === 'orders' && (
+            <div className="search-box">
+              <FontAwesomeIcon icon={faSearch} className="search-icon" />
+              <input
+                type="text"
+                placeholder="Search by order code or transaction ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          )}
         </div>
 
         {/* Transactions Table */}
@@ -371,6 +739,7 @@ const Purchases = () => {
               <thead>
                 <tr>
                   <th>ID</th>
+                  <th>User</th>
                   <th>Amount</th>
                   <th>Payment Method</th>
                   <th>Status</th>
@@ -379,31 +748,47 @@ const Purchases = () => {
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
-                  <tr key={transaction.id}>
-                    <td>{transaction.id}</td>
-                    <td>${transaction.amount}</td>
-                    <td>{transaction.payment_method}</td>
-                    <td className={getStatusClass(transaction.payment_status)}>
-                      {transaction.payment_status}
-                    </td>
-                    <td>{new Date(transaction.created_at).toLocaleDateString()}</td>
-                    <td className="action-buttons">
-                      <button 
-                        onClick={() => handleEdit(transaction)} 
-                        className="edit-btn"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(transaction.id)} 
-                        className="delete-btn"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {transactions.map((transaction) => {
+                  const user = users.find(u => u.id === transaction.user_id);
+                  return (
+                    <tr key={transaction.id}>
+                      <td>{transaction.id}</td>
+                      <td>{user ? `${user.name} (ID: ${user.id})` : `User ${transaction.user_id}`}</td>
+                      <td>${Number(transaction.amount).toFixed(2)}</td>
+                      <td>{transaction.payment_method}</td>
+                      <td className={getStatusClass(transaction.payment_status)}>
+                        <select
+                          value={transaction.payment_status}
+                          onChange={(e) => handleTransactionStatusChange(transaction.id, e.target.value)}
+                          className={`status-select ${getStatusClass(transaction.payment_status)}`}
+                          disabled={statusUpdateLoading && currentUpdatingId === transaction.id}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Failed">Failed</option>
+                        </select>
+                        {statusUpdateLoading && currentUpdatingId === transaction.id && (
+                          <FontAwesomeIcon icon={faSpinner} spin className="status-spinner" />
+                        )}
+                      </td>
+                      <td>{new Date(transaction.created_at).toLocaleDateString()}</td>
+                      <td className="action-buttons">
+                        <button 
+                          onClick={() => handleEdit(transaction)} 
+                          className="edit-btn"
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(transaction.id)} 
+                          className="delete-btn"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -416,7 +801,8 @@ const Purchases = () => {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Book ID</th>
+                  <th>User</th>
+                  <th>Book</th>
                   <th>Price</th>
                   <th>Quantity</th>
                   <th>Total</th>
@@ -426,33 +812,38 @@ const Purchases = () => {
                 </tr>
               </thead>
               <tbody>
-                {purchases.map((purchase) => (
-                  <tr key={purchase.id}>
-                    <td>{purchase.id}</td>
-                    <td>{purchase.book_id}</td>
-                    <td>${purchase.price_per_unit}</td>
-                    <td>{purchase.quantity}</td>
-                    <td>${purchase.total_price}</td>
-                    <td>{new Date(purchase.purchase_date).toLocaleDateString()}</td>
-                    <td className={getStatusClass(purchase.payment_status)}>
-                      {purchase.payment_status}
-                    </td>
-                    <td className="action-buttons">
-                      <button 
-                        onClick={() => handleEdit(purchase)} 
-                        className="edit-btn"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(purchase.id)} 
-                        className="delete-btn"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {purchases.map((purchase) => {
+                  const user = users.find(u => u.id === purchase.user_id);
+                  const book = books.find(b => b.id === purchase.book_id);
+                  return (
+                    <tr key={purchase.id}>
+                      <td>{purchase.id}</td>
+                      <td>{user ? `${user.name} (ID: ${user.id})` : `User ${purchase.user_id}`}</td>
+                      <td>{book ? `${book.title} (ID: ${book.id})` : `Book ${purchase.book_id}`}</td>
+                      <td>${Number(purchase.price_per_unit).toFixed(2)}</td>
+                      <td>{purchase.quantity}</td>
+                      <td>${Number(purchase.total_price).toFixed(2)}</td>
+                      <td>{new Date(purchase.purchase_date).toLocaleDateString()}</td>
+                      <td className={getStatusClass(purchase.payment_status)}>
+                        {purchase.payment_status}
+                      </td>
+                      <td className="action-buttons">
+                        <button 
+                          onClick={() => handleEdit(purchase)} 
+                          className="edit-btn"
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(purchase.id)} 
+                          className="delete-btn"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -465,7 +856,9 @@ const Purchases = () => {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Customer</th>
+                  <th>User</th>
+                  <th>Book</th>
+                  <th>Quantity</th>
                   <th>Total</th>
                   <th>Payment</th>
                   <th>Status</th>
@@ -474,32 +867,47 @@ const Purchases = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
-                  <tr key={order.id}>
-                    <td>{order.id}</td>
-                    <td>{order.user?.name || order.user_id}</td>
-                    <td>${order.total_price}</td>
-                    <td>{order.payment_method}</td>
-                    <td className={getStatusClass(order.status)}>
-                      {order.status}
-                    </td>
-                    <td>{new Date(order.created_at).toLocaleDateString()}</td>
-                    <td className="action-buttons">
-                      <button 
-                        onClick={() => handleEdit(order)} 
-                        className="edit-btn"
-                      >
-                        <FontAwesomeIcon icon={faEdit} />
-                      </button>
-                      <button 
-                        onClick={() => handleDelete(order.id)} 
-                        className="delete-btn"
-                      >
-                        <FontAwesomeIcon icon={faTrash} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {filteredOrders.map((order) => {
+                  const user = users.find(u => u.id === order.user_id);
+                  const book = books.find(b => b.id === order.book_id);
+                  return (
+                    <tr key={order.id}>
+                      <td>{order.id}</td>
+                      <td>{user ? `${user.name} (ID: ${user.id})` : `User ${order.user_id}`}</td>
+                      <td>{book ? `${book.title} (ID: ${book.id})` : `Book ${order.book_id}`}</td>
+                      <td>{order.quantity}</td>
+                      <td>${order.total_price.toFixed(2)}</td>
+                      <td>{order.payment_method}</td>
+                      <td className={getStatusClass(order.status)}>
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
+                          className={`status-select ${getStatusClass(order.status)}`}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Processing">Processing</option>
+                          <option value="Completed">Completed</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </td>
+                      <td>{new Date(order.created_at).toLocaleDateString()}</td>
+                      <td className="action-buttons">
+                        <button 
+                          onClick={() => handleEdit(order)} 
+                          className="edit-btn"
+                        >
+                          <FontAwesomeIcon icon={faEdit} />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(order.id)} 
+                          className="delete-btn"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
