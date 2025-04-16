@@ -276,47 +276,52 @@ const CustomerDashboard = () => {
           </div>
 
           <div className="member-info">
-            {user.isamember ? (
-              membershipStatus === 'loading' ? (
-                <p>Loading membership info...</p>
-              ) : userMembership ? (
-                <div className="membership-card-info">
-                  <h3>Your Membership Card</h3>
-                  <div className="membership-details">
-                    <p><strong>Card Number:</strong> {userMembership.card_number}</p>
-                    <p><strong>Type:</strong> {userMembership.membership_type === 'yearly' ? 'Yearly' : 'Monthly'}</p>
-                    <p><strong>Issued On:</strong> {new Date(userMembership.issued_on).toLocaleDateString()}</p>
-                    <p><strong>Valid Until:</strong> {new Date(userMembership.valid_until).toLocaleDateString()}</p>
-                    <p><strong>Status:</strong> 
-                      <span className={`status-badge ${userMembership.payment_status}`}>
-                        {userMembership.payment_status}
-                      </span>
-                    </p>
-                    <p><strong>Payment Method:</strong> {userMembership.payment_method}</p>
-                    {userMembership.payment_status === 'pending' && (
-                      <p className="text-warning">Your membership is pending approval</p>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="join-members">
-                  <h3>No Membership Found</h3>
-                  <p>It seems you don't have an active membership card.</p>
-                  <button className="join-button" onClick={handleOpenJoinModal}>
-                    Join Membership Now
-                  </button>
-                </div>
-              )
-            ) : (
-              <div className="join-members">
-                <h3>Become a Member!</h3>
-                <p>Enjoy book rentals and exclusive benefits by joining our membership.</p>
-                <button className="join-button" onClick={handleOpenJoinModal}>
-                  Join Now
-                </button>
-              </div>
-            )}
-          </div>
+  {user.isamember ? (
+    membershipStatus === 'loading' ? (
+      <p>Loading membership info...</p>
+    ) : userMembership ? (
+      <div className="membership-card-info">
+        {userMembership.payment_status === 'pending' && (
+          <div className="membership-ribbon">Pending</div>
+        )}
+        <h3>Your Membership Card</h3>
+        <div className="membership-details">
+          <p><strong>Card Number:</strong> {userMembership.card_number}</p>
+          <p><strong>Type:</strong> {userMembership.membership_type === 'yearly' ? 'Yearly' : 'Monthly'}</p>
+          <p><strong>Issued On:</strong> {new Date(userMembership.issued_on).toLocaleDateString()}</p>
+          <p><strong>Valid Until:</strong> {new Date(userMembership.valid_until).toLocaleDateString()}</p>
+          <p><strong>Status:</strong> 
+            <span className={`status-badge ${userMembership.payment_status}`}>
+              {userMembership.payment_status}
+            </span>
+          </p>
+          <p><strong>Payment Method:</strong> {userMembership.payment_method}</p>
+          {userMembership.payment_status === 'pending' && (
+            <div className="expiration-notice">
+              Your membership is pending approval
+            </div>
+          )}
+        </div>
+      </div>
+    ) : (
+      <div className="join-members">
+        <h3>No Membership Found</h3>
+        <p>It seems you don't have an active membership card.</p>
+        <button className="join-button" onClick={handleOpenJoinModal}>
+          Join Membership Now
+        </button>
+      </div>
+    )
+  ) : (
+    <div className="join-members">
+      <h3>Become a Member!</h3>
+      <p>Enjoy book rentals and exclusive benefits by joining our membership.</p>
+      <button className="join-button" onClick={handleOpenJoinModal}>
+        Join Now
+      </button>
+    </div>
+  )}
+</div>
         </div>
 
         <Offcanvas show={showJoinModal} onHide={handleCloseJoinModal} placement="bottom">
