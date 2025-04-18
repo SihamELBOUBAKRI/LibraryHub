@@ -72,6 +72,7 @@ Route::post('/reservations/cancel-expired', [BookReservationController::class, '
     // Order Processing (accessible to all authenticated users)
     Route::apiResource('orders', OrderController::class);
     Route::get('/users/{userId}/orders', [OrderController::class, 'getUserOrders']);
+    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus']);
 
     Route::apiResource('transactions', TransactionController::class)->except(['create', 'edit']);
     Route::put('/transactions/{id}/status', [TransactionController::class, 'updateStatus']);

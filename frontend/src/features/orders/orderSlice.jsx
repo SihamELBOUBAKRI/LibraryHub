@@ -68,6 +68,21 @@ export const createTransactionForOrder = createAsyncThunk(
     }
   }
 );
+export const updateOrderStatus = createAsyncThunk(
+  "orders/updateOrderStatus",
+  async ({ id, status, payment_status }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/orders/${id}/status`, {
+        status,
+        payment_status,
+      });
+      return response.data.data;
+    } catch (error) {
+      return rejectWithValue(error.response.data);
+    }
+  }
+);
+
 
 const ordersSlice = createSlice({
   name: "orders",
@@ -194,7 +209,27 @@ const ordersSlice = createSlice({
       .addCase(createTransactionForOrder.rejected, (state, action) => {
         state.transactionStatus = 'failed';
         state.error = action.payload || action.error.message;
+      })
+      .addCase(updateOrderStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateOrderStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        const updatedOrder = action.payload;
+        const index = state.orders.findIndex((order) => order.id === updatedOrder.id);
+        if (index !== -1) {
+          state.orders[index] = updatedOrder;
+        }
+        if (state.currentOrder?.id === updatedOrder.id) {
+          state.currentOrder = updatedOrder;
+        }
+      })
+      .addCase(updateOrderStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || action.error.message;
       });
+      
   },
 });
 

@@ -10,7 +10,7 @@ import {
   updateTransactionStatus 
 } from "../../features/transactions/transactionsSlice";
 import { fetchPurchases, deletePurchase, updatePurchase, addPurchase } from "../../features/purchases/purchasesSlice";
-import { fetchOrders, deleteOrder, updateOrder } from "../../features/orders/orderSlice";
+import { fetchOrders, deleteOrder, updateOrder, updateOrderStatus } from "../../features/orders/orderSlice";
 import { fetchBooksToSell } from "../../features/book_to_sell/book_to_sellSlice";
 import { fetchUsers } from "../../features/users/userSlice";
 import Select from 'react-select';
@@ -155,14 +155,17 @@ const Purchases = () => {
     }
   };
 
-  const handleOrderStatusChange = async (orderId, newStatus) => {
+  const handleOrderStatusChange = async (orderId, newStatus, paymentStatus = null) => {
     if (window.confirm(`Are you sure you want to update status to ${newStatus}?`)) {
       try {
-        await dispatch(updateOrder({ 
-          id: orderId, 
-          status: newStatus 
-        })).unwrap();
-        toast.success('Order status updated successfully!');
+        await dispatch(
+          updateOrderStatus({
+            id: orderId,
+            status: newStatus,
+            payment_status: paymentStatus, // send null or the desired value
+          })
+        ).unwrap();
+        toast.success("Order status updated successfully!");
       } catch (error) {
         toast.error(`Failed to update status: ${error}`);
       }
@@ -912,15 +915,16 @@ const Purchases = () => {
                       <td>{order.quantity}</td>
                       <td>${Number(order.total_price).toFixed(2)}</td>
                       <td>{order.payment_method}</td>
-                      <td className={getStatusClass(order.status)}>
+                      <td className={`status-cell ${getStatusClass(order.status)}`}>
                         <select
                           value={order.status}
                           onChange={(e) => handleOrderStatusChange(order.id, e.target.value)}
                           className={`status-select ${getStatusClass(order.status)}`}
+                          aria-label={`Change order status from ${order.status}`}
                         >
                           <option value="Pending">Pending</option>
-                          <option value="Processing">Processing</option>
-                          <option value="Completed">Completed</option>
+                          <option value="Paid">Paid</option>
+                          <option value="Shipped">Shipped</option>
                           <option value="Cancelled">Cancelled</option>
                         </select>
                       </td>

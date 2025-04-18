@@ -244,4 +244,59 @@ class OrderController extends Controller
 
         return response()->json(['message' => 'Order deleted successfully']);
     }
+
+
+    /**
+ * Update the order status
+ *
+ * @param  \Illuminate\Http\Request  $request
+ * @param  int  $id
+ * @return \Illuminate\Http\Response
+ */
+public function updateStatus(Request $request, $id)
+{
+    $order = Order::find($id);
+
+    if (!$order) {
+        return response()->json(['message' => 'Order not found'], 404);
+    }
+
+    $validator = Validator::make($request->all(), [
+        'status' => 'required|string|in:Pending,Paid,Shipped,Cancelled',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    DB::beginTransaction();
+    try {
+        $order->status = $request->status;
+        
+        // You can add additional logic based on status changes
+        if ($request->status === 'Completed') {
+            $order->completed_at = now();
+        } elseif ($request->status === 'Cancelled') {
+            // If cancelling, you might want to restore stock
+            foreach ($order->books as $book) {
+                $book->increment('stock', $book->pivot->quantity);
+            }
+        }
+        
+        $order->save();
+        
+        DB::commit();
+        
+        return response()->json([
+            'message' => 'Order status updated successfully!',
+            'data' => $order->fresh()
+        ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Failed to update order status',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 }
