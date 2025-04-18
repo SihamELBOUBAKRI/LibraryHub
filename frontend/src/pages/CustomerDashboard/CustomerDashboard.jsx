@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { logout } from '../../features/auth/authSlice';
 import { clearCart, fetchCart, removeFromCart } from '../../features/cart/cartSlice';
 import { FaShoppingCart, FaSignOutAlt, FaHome, FaSearch, FaTrash, FaHeart } from 'react-icons/fa';
 import { FaEdit, FaCog, FaKey, FaUserPlus, FaBook } from "react-icons/fa";
-import { Button, Offcanvas } from 'react-bootstrap';
+import { Button, Card, Offcanvas } from 'react-bootstrap';
 import { ToastContainer, toast } from 'react-toastify';
-import { editProfile,fetchUserProfile } from '../../features/users/userSlice';
+import { editProfile, fetchUserProfile } from '../../features/users/userSlice';
 import 'react-toastify/dist/ReactToastify.css';
 import './CustomerDashboard.css';
 import Modal from 'react-bootstrap/Modal';
@@ -15,6 +15,8 @@ import { Form } from 'react-bootstrap';
 import { fetchWishlist, removeWishlistItem } from '../../features/wishlist/wishlistSlice';
 import { createMembership, fetchUserMembership } from '../../features/membership/membershipSlice';
 import { createOrder } from '../../features/orders/orderSlice';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const CustomerDashboard = () => {
   const [showCart, setShowCart] = useState(false);
@@ -57,10 +59,26 @@ const CustomerDashboard = () => {
     expiration_date: '',
     notes: '',
   });
+  const [membershipSuccess, setMembershipSuccess] = useState(false);
+  const [generatedMembershipData, setGeneratedMembershipData] = useState(null);
+  const pdfRef = useRef();
 
   const getCartId = () => filteredCartItems.length > 0 ? filteredCartItems[0].cart_id : null;
   const handleOpenJoinModal = () => setShowJoinModal(true);
   const handleCloseJoinModal = () => setShowJoinModal(false);
+
+  const handleDownloadMembershipPDF = () => {
+    const input = pdfRef.current;
+    html2canvas(input).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save('membership-card.pdf');
+    });
+  };
 
   const handleChange = (e) => {
     setMembershipData({ ...membershipData, [e.target.name]: e.target.value });
@@ -68,10 +86,16 @@ const CustomerDashboard = () => {
   
   const handleJoinMembership = async () => {
     try {
-      await dispatch(createMembership(membershipData)).unwrap();
+      const result = await dispatch(createMembership(membershipData)).unwrap();
       // Add these lines to refresh both membership and user data
-      await dispatch(fetchUserMembership(user.id));
-      await dispatch(fetchUserProfile(user.id));
+      await Promise.all([
+        dispatch(fetchUserMembership(user.id)),
+        dispatch(fetchUserProfile(user.id))
+      ]);
+      // Set the success state and store the membership data
+      setGeneratedMembershipData(result);
+      setMembershipSuccess(true);
+      
       toast.success('Membership request submitted!');
       handleCloseJoinModal();
     } catch (error) {
@@ -440,6 +464,74 @@ const CustomerDashboard = () => {
             )}
           </Offcanvas.Body>
         </Offcanvas>
+
+         {/* Membership PDF Modal */}
+         <Modal show={membershipSuccess} onHide={() => setMembershipSuccess(false)} size="lg">
+          <Modal.Header closeButton>
+            <Modal.Title>Membership Confirmation</Modal.Title>
+          </Modal.Header>
+          <Modal.Body>
+            <div className="membership-pdf-content" ref={pdfRef}>
+              <Card className="membership-card-pdf">
+                <Card.Body>
+                  <div className="text-center mb-4">
+                    <h2>Library Membership Card</h2>
+                    <div className="library-logo-placeholder">
+                      <h3>LibraryHub</h3>
+                    </div>
+                  </div>
+                  
+                  <div className="row">
+                    <div className="col-md-6">
+                      <h4>Member Information</h4>
+                      <p><strong>Name:</strong> {user.name}</p>
+                      <p><strong>Member ID:</strong> {user.id}</p>
+                      <p><strong>Join Date:</strong> {new Date().toLocaleDateString()}</p>
+                    </div>
+                    <div className="col-md-6">
+                      <h4>Membership Details</h4>
+                      <p><strong>Card Number:</strong> {generatedMembershipData?.card_number || 'Pending'}</p>
+                      <p><strong>Type:</strong> {membershipData.membership_type === 'yearly' ? 'Yearly' : 'Monthly'}</p>
+                      <p><strong>Valid Until:</strong> 
+                        {new Date(
+                          new Date().setFullYear(
+                            new Date().getFullYear() + (membershipData.membership_type === 'yearly' ? 1 : 0),
+                            new Date().getMonth() + (membershipData.membership_type === 'yearly' ? 0 : 1)
+                          )
+                        ).toLocaleDateString()}
+                      </p>
+                      <p><strong>Status:</strong> Pending Approval</p>
+                    </div>
+                  </div>
+
+                  <div className="membership-terms mt-4">
+                    <h5>Terms and Conditions</h5>
+                    <ul>
+                      <li>This membership card is non-transferable</li>
+                      <li>Must be presented for all library transactions</li>
+                      <li>Valid for {membershipData.membership_type === 'yearly' ? 'one year' : 'one month'} from issue date</li>
+                      <li>Subject to library rules and regulations</li>
+                    </ul>
+                  </div>
+
+                  <div className="text-center mt-4">
+                    <p className="barcode-placeholder">MEMBERSHIP CARD</p>
+                    <p className="small text-muted">ID: {user.id}-{generatedMembershipData?.id || 'NEW'}</p>
+                  </div>
+                </Card.Body>
+              </Card>
+            </div>
+            
+            <div className="text-center mt-3">
+              <Button variant="primary" onClick={handleDownloadMembershipPDF} className="me-2">
+                Download Membership Card
+              </Button>
+              <Button variant="secondary" onClick={() => setMembershipSuccess(false)}>
+                Close
+              </Button>
+            </div>
+          </Modal.Body>
+        </Modal>
 
         <Modal show={showEditProfile} onHide={() => setShowEditProfile(false)}>
           <Modal.Header closeButton>

@@ -20,10 +20,17 @@ export const addPurchase = createAsyncThunk('purchases/addPurchase', async (newP
 });
 
 // Update a purchase
-export const updatePurchase = createAsyncThunk('purchases/updatePurchase', async ({ id, updatedData }) => {
-    const response = await axiosInstance.put(`/purchases/${id}`, updatedData);
-    return response.data;
-});
+export const updatePurchase = createAsyncThunk(
+    'purchases/updatePurchase',
+    async ({ id, ...updatedFields }, { rejectWithValue }) => {
+      try {
+        const response = await axiosInstance.put(`/purchases/${id}`, updatedFields);
+        return { id, ...response.data };
+      } catch (error) {
+        return rejectWithValue(error.response?.data?.message || error.message);
+      }
+    }
+  );
 
 // Delete a purchase
 export const deletePurchase = createAsyncThunk('purchases/deletePurchase', async (id) => {
@@ -74,12 +81,34 @@ const purchasesSlice = createSlice({
             })
 
             // Update Purchase
-            .addCase(updatePurchase.fulfilled, (state, action) => {
-                const index = state.purchases.findIndex((purchase) => purchase.id === action.payload.id);
+            .addCase(updatePurchase.pending, (state) => {
+                state.loading = true;
+                state.error = null;
+              })
+              .addCase(updatePurchase.fulfilled, (state, action) => {
+                state.loading = false;
+                const index = state.purchases.findIndex(
+                  purchase => purchase.id === action.payload.id
+                );
                 if (index !== -1) {
-                    state.purchases[index] = action.payload;
+                  // Only update the fields that were changed
+                  Object.keys(action.payload).forEach(key => {
+                    if (key !== 'id') {
+                      state.purchases[index][key] = action.payload[key];
+                    }
+                  });
+                  
+                  // Recalculate total price if quantity or price_per_unit was updated
+                  if (action.payload.quantity || action.payload.price_per_unit) {
+                    const purchase = state.purchases[index];
+                    purchase.total_price = purchase.quantity * purchase.price_per_unit;
+                  }
                 }
-            })
+              })
+              .addCase(updatePurchase.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+              })
 
             // Delete Purchase
             .addCase(deletePurchase.fulfilled, (state, action) => {

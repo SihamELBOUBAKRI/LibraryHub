@@ -14,6 +14,8 @@ import { fetchOrders, deleteOrder, updateOrder } from "../../features/orders/ord
 import { fetchBooksToSell } from "../../features/book_to_sell/book_to_sellSlice";
 import { fetchUsers } from "../../features/users/userSlice";
 import Select from 'react-select';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import "../AdminDashboard/Purchases.css";
 
 const Purchases = () => {
@@ -29,14 +31,28 @@ const Purchases = () => {
   const { 
     transactions = [], 
     loading: transactionLoading, 
-    statusUpdateLoading 
+    statusUpdateLoading,
+    error: transactionError
   } = useSelector((state) => state.transactions);
   
-  const { purchases = [], loading: purchaseLoading } = useSelector((state) => state.purchases);
-  const { orders = [], loading: orderLoading } = useSelector((state) => state.orders);
+  const { purchases = [], loading: purchaseLoading, error: purchaseError } = useSelector((state) => state.purchases);
+  const { orders = [], loading: orderLoading, error: orderError } = useSelector((state) => state.orders);
   const { books = [], loading: booksLoading } = useSelector((state) => state.book_to_sell);
   const { users = [], loading: usersLoading } = useSelector((state) => state.users);
   const currentUser = useSelector((state) => state.auth.user);
+
+  // Show toast notifications for errors
+  useEffect(() => {
+    if (transactionError) {
+      toast.error(transactionError);
+    }
+    if (purchaseError) {
+      toast.error(purchaseError);
+    }
+    if (orderError) {
+      toast.error(orderError);
+    }
+  }, [transactionError, purchaseError, orderError]);
 
   useEffect(() => {
     dispatch(fetchTransactions());
@@ -46,7 +62,6 @@ const Purchases = () => {
     dispatch(fetchUsers());
   }, [dispatch]);
 
-  // Filter orders by search term
   const filteredOrders = orders.filter(order => 
     order.id.toString().includes(searchTerm.toLowerCase()) ||
     (order.transaction_id && order.transaction_id.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -62,20 +77,22 @@ const Purchases = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
       try {
+        let action;
         switch(selectedSection) {
           case 'transactions': 
-            await dispatch(deleteTransaction(id)).unwrap();
+            action = await dispatch(deleteTransaction(id)).unwrap();
             break;
           case 'purchases': 
-            await dispatch(deletePurchase(id)).unwrap();
+            action = await dispatch(deletePurchase(id)).unwrap();
             break;
           case 'orders': 
-            await dispatch(deleteOrder(id)).unwrap();
+            action = await dispatch(deleteOrder(id)).unwrap();
             break;
           default: break;
         }
+        toast.success(`${selectedSection.slice(0, -1)} deleted successfully!`);
       } catch (error) {
-        alert(`Failed to delete: ${error}`);
+        toast.error(`Failed to delete: ${error}`);
       }
     }
   };
@@ -88,46 +105,32 @@ const Purchases = () => {
     // Prepare the initial form data based on the selected section
     let initialFormData = {
       ...item,
-      user_id: user ? { 
-        value: user.id, 
-        label: `${user.name} (ID: ${user.id})` 
-      } : null
+      user_id: user?.id,
     };
   
-    // Special handling for transactions
     if (selectedSection === 'transactions') {
       initialFormData = {
         ...initialFormData,
-        // For transactions, we need to ensure all required fields are included
         amount: item.amount,
         payment_method: item.payment_method,
         payment_status: item.payment_status,
         transaction_type: item.transaction_type,
-        // Include relationship IDs if they exist
         ...(item.order_id && { order_id: item.order_id }),
         ...(item.membership_card_id && { membership_card_id: item.membership_card_id })
       };
       
-      // If it's an order transaction, set the order_id in select format
       if (item.order_id) {
         const order = orders.find(o => o.id === item.order_id);
         if (order) {
-          initialFormData.order_id = {
-            value: order.id,
-            label: `Order #${order.id} ($${order.total_price})`
-          };
+          initialFormData.order_id = order.id
         }
       }
     }
     
-    // For purchases/orders, include book_id if it exists
     if (item.book_id) {
       const book = books.find(b => b.id === item.book_id);
       if (book) {
-        initialFormData.book_id = { 
-          value: book.id, 
-          label: `${book.title} (ID: ${book.id})` 
-        };
+        initialFormData.book_id = book.id
       }
     }
     
@@ -143,8 +146,9 @@ const Purchases = () => {
           id: transactionId, 
           payment_status: newStatus 
         })).unwrap();
+        toast.success('Transaction status updated successfully!');
       } catch (error) {
-        alert(`Failed to update status: ${error}`);
+        toast.error(`Failed to update status: ${error}`);
       } finally {
         setCurrentUpdatingId(null);
       }
@@ -158,8 +162,9 @@ const Purchases = () => {
           id: orderId, 
           status: newStatus 
         })).unwrap();
+        toast.success('Order status updated successfully!');
       } catch (error) {
-        alert(`Failed to update status: ${error}`);
+        toast.error(`Failed to update status: ${error}`);
       }
     }
   };
@@ -185,6 +190,14 @@ const Purchases = () => {
         payment_status: 'Pending',
         order_id: null,
         membership_card_id: null
+      },
+      orders: {
+        user_id: null,
+        book_id: null,
+        quantity: 1,
+        shipping_address: '',
+        payment_method: 'Credit Card',
+        status: 'Pending'
       }
     };
     setFormData(defaults[selectedSection] || {});
@@ -209,14 +222,14 @@ const Purchases = () => {
   const handleUserSelect = (selectedOption) => {
     setFormData(prev => ({
       ...prev,
-      user_id: selectedOption
+      user_id: selectedOption.value
     }));
   };
 
   const handleBookSelect = (selectedOption) => {
     setFormData(prev => ({
       ...prev,
-      book_id: selectedOption
+      book_id: selectedOption.value
     }));
   };
 
@@ -231,60 +244,82 @@ const Purchases = () => {
     e.preventDefault();
     
     try {
+      let result;
       if (editItem) {
-        let updatedData = {};
-        
+        // For editing items
         if (selectedSection === 'transactions') {
-          updatedData = {
-            // Always include these required fields
-            amount: formData.amount,
-            payment_method: formData.payment_method,
-            payment_status: formData.payment_status,
-            transaction_type: formData.transaction_type,
-            // Include user ID (either from select or direct value)
-            user_id: formData.user_id?.value || formData.user_id,
-            // Include relationship IDs if they exist
-            ...(formData.order_id && { 
-              order_id: formData.order_id?.value || formData.order_id 
-            }),
-            ...(formData.membership_card_id && { 
-              membership_card_id: formData.membership_card_id 
-            })
-          };
-        } else {
-          updatedData = {
+          // Create object with only changed fields
+          const changedFields = {};
+          
+          // Check each field for changes
+          if (formData.amount !== editItem.amount) changedFields.amount = formData.amount;
+          if (formData.payment_method !== editItem.payment_method) changedFields.payment_method = formData.payment_method;
+          if (formData.payment_status !== editItem.payment_status) changedFields.payment_status = formData.payment_status;
+          if (formData.transaction_type !== editItem.transaction_type) changedFields.transaction_type = formData.transaction_type;
+          if (formData.user_id !== editItem.user_id) changedFields.user_id = formData.user_id;
+          
+          // Handle type-specific fields
+          if (formData.transaction_type === 'Order' && formData.order_id !== editItem.order_id) {
+            changedFields.order_id = formData.order_id;
+          }
+          if (formData.transaction_type === 'Membership' && formData.membership_card_id !== editItem.membership_card_id) {
+            changedFields.membership_card_id = formData.membership_card_id;
+          }
+          
+          if (Object.keys(changedFields).length === 0) {
+            toast.info("No changes detected");
+            setIsModalOpen(false);
+            return;
+          }
+          
+          result = await dispatch(updateTransaction({ 
+            id: editItem.id, 
+            ...changedFields 
+          })).unwrap();
+        } else if (selectedSection === 'purchases') {
+          // Create object with only changed fields for purchases
+          const changedFields = {};
+          
+          // Check each field for changes
+          if (formData.user_id !== editItem.user_id) changedFields.user_id = formData.user_id?.value || formData.user_id;
+          if (formData.book_id !== editItem.book_id) changedFields.book_id = formData.book_id?.value || formData.book_id;
+          if (formData.quantity !== editItem.quantity) changedFields.quantity = formData.quantity;
+          if (formData.price_per_unit !== editItem.price_per_unit) changedFields.price_per_unit = formData.price_per_unit;
+          if (formData.purchase_date !== editItem.purchase_date) changedFields.purchase_date = formData.purchase_date;
+          if (formData.payment_method !== editItem.payment_method) changedFields.payment_method = formData.payment_method;
+          if (formData.payment_status !== editItem.payment_status) changedFields.payment_status = formData.payment_status;
+          
+          // Recalculate total price if quantity or price_per_unit changed
+          if (changedFields.quantity || changedFields.price_per_unit) {
+            const newQuantity = changedFields.quantity !== undefined ? changedFields.quantity : editItem.quantity;
+            const newPrice = changedFields.price_per_unit !== undefined ? changedFields.price_per_unit : editItem.price_per_unit;
+            changedFields.total_price = newQuantity * newPrice;
+          }
+          
+          if (Object.keys(changedFields).length === 0) {
+            toast.info("No changes detected");
+            setIsModalOpen(false);
+            return;
+          }
+          
+          result = await dispatch(updatePurchase({ 
+            id: editItem.id, 
+            ...changedFields 
+          })).unwrap();
+        } else if (selectedSection === 'orders') {
+          const updatedData = {
             ...formData,
             user_id: formData.user_id?.value || formData.user_id,
-            book_id: formData.book_id?.value || formData.book_id,
-            ...(selectedSection === 'purchases' && {
-              total_price: formData.price_per_unit * formData.quantity
-            })
+            book_id: formData.book_id?.value || formData.book_id
           };
+          result = await dispatch(updateOrder({ 
+            id: editItem.id, 
+            ...updatedData 
+          })).unwrap();
         }
-  
-        switch(selectedSection) {
-          case 'transactions': 
-            await dispatch(updateTransaction({ 
-              id: editItem.id, 
-              ...updatedData 
-            })).unwrap();
-            break;
-          case 'purchases':
-            await dispatch(updatePurchase({ 
-              id: editItem.id, 
-              ...updatedData 
-            })).unwrap();
-            break;
-          case 'orders':
-            await dispatch(updateOrder({ 
-              id: editItem.id, 
-              ...updatedData 
-            })).unwrap();
-            break;
-          default: break;
-        }
+        toast.success(`${selectedSection.slice(0, -1)} updated successfully!`);
       } else {
-        // For new items, include all required fields
+        // For adding new items
         const submissionData = {
           ...formData,
           user_id: formData.user_id?.value || formData.user_id,
@@ -294,34 +329,32 @@ const Purchases = () => {
           })
         };
 
-        // For transactions, ensure required fields are included
         if (selectedSection === 'transactions') {
-          submissionData.transaction_id = 'TXN-' + Math.random().toString(36).substring(2, 10).toUpperCase();
-          
-          // If it's an Order transaction, ensure order_id is provided
-          if (formData.transaction_type === 'Order' && !formData.order_id) {
-            throw new Error('Order ID is required for Order transactions');
-          }
-          
-          // If it's a Membership transaction, ensure membership_card_id is provided
-          if (formData.transaction_type === 'Membership' && !formData.membership_card_id) {
-            throw new Error('Membership Card ID is required for Membership transactions');
-          }
-        }
+          const transactionData = {
+            user_id: submissionData.user_id,
+            amount: submissionData.amount,
+            payment_method: submissionData.payment_method,
+            transaction_type: submissionData.transaction_type,
+            payment_status: submissionData.payment_status || 'Pending',
+            transaction_id: 'TXN-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+            ...(submissionData.transaction_type === 'Order' && { 
+              order_id: submissionData.order_id 
+            }),
+            ...(submissionData.transaction_type === 'Membership' && { 
+              membership_card_id: submissionData.membership_card_id 
+            })
+          };
 
-        switch(selectedSection) {
-          case 'transactions': 
-            await dispatch(addTransaction(submissionData)).unwrap();
-            break;
-          case 'purchases': 
-            await dispatch(addPurchase(submissionData)).unwrap();
-            break;
-          default: break;
+          result = await dispatch(addTransaction(transactionData)).unwrap();
+        } else if (selectedSection === 'purchases') {
+          result = await dispatch(addPurchase(submissionData)).unwrap();
         }
+        toast.success(`${selectedSection.slice(0, -1)} added successfully!`);
       }
       setIsModalOpen(false);
     } catch (error) {
-      alert(`Operation failed: ${error.message || error}`);
+      toast.error(`Operation failed: ${error.message || error}`);
+      console.error("Error details:", error);
     }
   };
 
@@ -343,7 +376,6 @@ const Purchases = () => {
     }
   };
 
-  // Prepare user and book options for Select components
   const userOptions = users.map(user => ({
     value: user.id,
     label: `${user.name} (ID: ${user.id})`
@@ -368,7 +400,7 @@ const Purchases = () => {
               <label>User</label>
               <Select
                 options={userOptions}
-                value={formData.user_id}
+                value={userOptions.find(opt => opt.value === formData.user_id)}
                 onChange={handleUserSelect}
                 placeholder="Search user..."
                 isSearchable
@@ -469,7 +501,7 @@ const Purchases = () => {
               <label>User</label>
               <Select
                 options={userOptions}
-                value={formData.user_id}
+                value={userOptions.find(opt => opt.value === formData.user_id)}
                 onChange={handleUserSelect}
                 placeholder="Search user..."
                 isSearchable
@@ -481,7 +513,7 @@ const Purchases = () => {
               <label>Book</label>
               <Select
                 options={bookOptions}
-                value={formData.book_id}
+                value={bookOptions.find(opt => opt.value === formData.book_id)}
                 onChange={handleBookSelect}
                 placeholder="Search book..."
                 isSearchable
@@ -573,7 +605,7 @@ const Purchases = () => {
               <label>User</label>
               <Select
                 options={userOptions}
-                value={formData.user_id}
+                value={userOptions.find(opt => opt.value === formData.user_id)}
                 onChange={handleUserSelect}
                 placeholder="Search user..."
                 isSearchable
@@ -585,7 +617,7 @@ const Purchases = () => {
               <label>Book</label>
               <Select
                 options={bookOptions}
-                value={formData.book_id}
+                value={bookOptions.find(opt => opt.value === formData.book_id)}
                 onChange={handleBookSelect}
                 placeholder="Search book..."
                 isSearchable
@@ -741,6 +773,7 @@ const Purchases = () => {
                   <th>ID</th>
                   <th>User</th>
                   <th>Amount</th>
+                  <th>type</th>
                   <th>Payment Method</th>
                   <th>Status</th>
                   <th>Date</th>
@@ -755,6 +788,7 @@ const Purchases = () => {
                       <td>{transaction.id}</td>
                       <td>{user ? `${user.name} (ID: ${user.id})` : `User ${transaction.user_id}`}</td>
                       <td>${Number(transaction.amount).toFixed(2)}</td>
+                      <td>{transaction.transaction_type}</td>
                       <td>{transaction.payment_method}</td>
                       <td className={getStatusClass(transaction.payment_status)}>
                         <select

@@ -173,7 +173,7 @@ class OrderController extends Controller
 
     public function index()
 {
-    $orders = Order::with(['user', 'books'])->get();
+    $orders = Order::with(['user', 'books'])->latest()->get();
     return response()->json($orders);
 }
     

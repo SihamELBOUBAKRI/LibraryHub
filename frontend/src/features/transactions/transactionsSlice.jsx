@@ -40,13 +40,13 @@ export const addTransaction = createAsyncThunk(
   }
 );
 
-// Update a transaction
+
 export const updateTransaction = createAsyncThunk(
-  "transactions/updateTransaction", 
-  async ({ id, updatedData }, { rejectWithValue }) => {
+  "transactions/updateTransaction",
+  async ({ id, ...updatedFields }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.put(`/transactions/${id}`, updatedData);
-      return response.data.data;
+      const response = await axiosInstance.put(`/transactions/${id}`, updatedFields);
+      return { id, ...response.data.data };
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || error.message);
     }
@@ -67,6 +67,7 @@ export const updateTransactionStatus = createAsyncThunk(
     }
   }
 );
+
 
 // Delete a transaction
 export const deleteTransaction = createAsyncThunk(
@@ -153,11 +154,12 @@ const transactionsSlice = createSlice({
           transaction => transaction.id === action.payload.id
         );
         if (index !== -1) {
-          // Merge the existing transaction with the updated fields
-          state.transactions[index] = {
-            ...state.transactions[index],
-            ...action.payload
-          };
+          // Only update the fields that were changed
+          Object.keys(action.payload).forEach(key => {
+            if (key !== 'id') {
+              state.transactions[index][key] = action.payload[key];
+            }
+          });
         }
       })
       .addCase(updateTransaction.rejected, (state, action) => {

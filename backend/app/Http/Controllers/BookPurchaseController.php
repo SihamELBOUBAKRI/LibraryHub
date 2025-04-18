@@ -7,6 +7,8 @@ use App\Models\BookToSell;
 use App\Models\BookPurchase;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class BookPurchaseController extends Controller
@@ -22,7 +24,7 @@ class BookPurchaseController extends Controller
         public function index()
         {
             // Fix the incorrect ->with() usage - it should be on the query builder, not the collection
-            return BookPurchase::with('book')->get();
+            return BookPurchase::with('book')->latest()->get();
         }
 
         public function getuserpurchases($userId)
@@ -87,17 +89,52 @@ class BookPurchaseController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'payment_status' => 'required|in:pending,completed,failed',
-            'transaction_id' => 'nullable|string',
-        ]);
+        DB::beginTransaction();
+        
+        try {
+            $purchase = BookPurchase::findOrFail($id);
 
-        $purchase = BookPurchase::findOrFail($id);
-        $purchase->payment_status = $request->payment_status;
-        $purchase->transaction_id = $request->transaction_id ?? $purchase->transaction_id;
-        $purchase->save();
+            // Only validate fields that are present in the request
+            $validated = $request->validate([
+                'user_id' => 'sometimes|exists:users,id',
+                'book_id' => 'sometimes|exists:book_to_sell,id',
+                'quantity' => 'sometimes|integer|min:1',
+                'price_per_unit' => 'sometimes|numeric|min:0',
+                'total_price' => 'sometimes|numeric|min:0',
+                'purchase_date' => 'sometimes|date',
+                'payment_method' => 'sometimes|string',
+                'payment_status' => 'sometimes|in:pending,completed,failed',
+                'transaction_id' => 'sometimes|string',
+            ]);
 
-        return response()->json($purchase);
+            // Update only the fields that were provided
+            foreach ($validated as $key => $value) {
+                $purchase->{$key} = $value;
+            }
+
+            // Recalculate total price if quantity or price_per_unit was updated
+            if (isset($validated['quantity']) || isset($validated['price_per_unit'])) {
+                $purchase->total_price = $purchase->quantity * $purchase->price_per_unit;
+            }
+
+            $purchase->save();
+
+            DB::commit();
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'Book purchase updated successfully',
+                'data' => $purchase
+            ]);
+    
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('BookPurchase update error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update book purchase: ' . $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
