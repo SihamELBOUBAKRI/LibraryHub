@@ -43,11 +43,29 @@ export const createActiveRental = createAsyncThunk(
 // Update an active rental (return or overdue handling)
 export const updateActiveRental = createAsyncThunk(
   "activeRentals/updateActiveRental",
-  async ({ id, status }, { rejectWithValue }) => {
+  async ({ id, updateData }, { rejectWithValue, getState }) => {
     try {
-      const response = await axiosInstance.put(
-        `/active-rentals/${id}`,
-        { status }
+      // Get current rental from state to compare changes
+      const currentRental = getState().activeRentals.activeRentals.find(
+        rental => rental.id === id
+      );
+      
+      // Filter out unchanged fields
+      const changes = {};
+      for (const key in updateData) {
+        if (updateData[key] !== currentRental[key]) {
+          changes[key] = updateData[key];
+        }
+      }
+
+      // Only send request if there are actual changes
+      if (Object.keys(changes).length === 0) {
+        return rejectWithValue("No changes detected");
+      }
+
+      const response = await axiosInstance.patch(
+        `active-rentals/${id}`,
+        changes
       );
       return response.data;
     } catch (error) {
@@ -68,7 +86,20 @@ export const deleteActiveRental = createAsyncThunk(
     }
   }
 );
-
+export const updateRentalStatus = createAsyncThunk(
+  "activeRentals/updateStatus",
+  async ({ id, status }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(
+        `active-rentals/${id}/status`,
+        { status }
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 const initialState = {
   activeRentals: [],
   userRentals: [], // For a specific user's rentals
@@ -155,6 +186,31 @@ const activeRentalsSlice = createSlice({
         state.loading = false;
       })
       .addCase(deleteActiveRental.rejected, (state, action) => {
+        state.error = action.payload || action.error.message;
+        state.loading = false;
+      })
+      .addCase(updateRentalStatus.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(updateRentalStatus.fulfilled, (state, action) => {
+        const index = state.activeRentals.findIndex(
+          (rental) => rental.id === action.payload.id
+        );
+        if (index !== -1) {
+          state.activeRentals[index] = action.payload;
+        }
+        
+        // Also update in userRentals if present
+        const userIndex = state.userRentals.findIndex(
+          (rental) => rental.id === action.payload.id
+        );
+        if (userIndex !== -1) {
+          state.userRentals[userIndex] = action.payload;
+        }
+        
+        state.loading = false;
+      })
+      .addCase(updateRentalStatus.rejected, (state, action) => {
         state.error = action.payload || action.error.message;
         state.loading = false;
       });

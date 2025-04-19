@@ -61,7 +61,7 @@ Route::post('/reservations/cancel-expired', [BookReservationController::class, '
 
     Route::apiResource('active-rentals', ActiveRentalController::class);
     Route::get('users/{userId}/active-rentals', [ActiveRentalController::class, 'getUserActiveRentals']);
-
+    Route::put('/active-rentals/{id}/status', [ActiveRentalController::class, 'updateStatus']);
 
     Route::apiResource('wishlists', WishlistController::class);
     Route::get('users/{userId}/wishlist', [WishlistController::class, 'getWishlist']);
@@ -108,8 +108,6 @@ Route::post('/reservations/cancel-expired', [BookReservationController::class, '
         // User Management
         Route::apiResource('users', UserController::class);
         // Membership & Transactions
-        Route::apiResource('membership-cards', MembershipCardController::class);
-        // Membership Card CRUD (admin only)
         Route::apiResource('membership-cards', MembershipCardController::class);
 
     });

@@ -21,18 +21,6 @@ class MembershipCardController extends Controller
     {
         try {
             $query = MembershipCard::with('user');
-            
-            // Add filters if provided
-            if ($request->has('user_id')) {
-                $query->where('user_id', $request->user_id);
-            }
-            if ($request->has('membership_type')) {
-                $query->where('membership_type', $request->membership_type);
-            }
-            if ($request->has('payment_status')) {
-                $query->where('payment_status', $request->payment_status);
-            }
-
             $membershipCards = $query->latest()->get();
             
             return response()->json($membershipCards);

@@ -12,7 +12,8 @@ import {
   fetchOverdues, deleteOverdue, updateOverdue 
 } from "../../features/overdues/overduesSlice";
 import { 
-  fetchActiveRentals, deleteActiveRental, createActiveRental, updateActiveRental 
+  fetchActiveRentals, deleteActiveRental, createActiveRental, 
+  updateActiveRental, updateRentalStatus 
 } from "../../features/active_rentals/active_rentalsSlice";
 import { 
   fetchReservations, deleteReservation, updateReservation, createReservation 
@@ -42,6 +43,7 @@ const Rentals = () => {
   const { memberships = [], loading: membershipsLoading } = useSelector((state) => state.membership);
   const { books = [], loading: booksLoading } = useSelector((state) => state.book_to_rent);
 
+
   // Prepare membership options for select
   const membershipOptions = memberships
     .filter(card => card.user)
@@ -54,12 +56,12 @@ const Rentals = () => {
 
   // Prepare book options for select
   const bookOptions = books
-  .filter(book => book.availability_status === 'available')
-  .map(book => ({
-    value: book.id,
-    label: `${book.title} (ID: ${book.id})`,
-    book
-  }));
+    .filter(book => book.availability_status === 'available')
+    .map(book => ({
+      value: book.id,
+      label: `${book.title} (ID: ${book.id})`,
+      book
+    }));
 
   useEffect(() => {
     dispatch(fetchRentals());
@@ -134,12 +136,11 @@ const Rentals = () => {
       activeRentals: {
         user_id: null,
         book_id: null,
-        reservation_id: null,
         membership_card_number: '',
         rental_days: 14,
         rental_date: new Date().toISOString().split('T')[0],
         due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        status: 'pending'
+        status: 'active'
       },
       reservations: {
         user_id: null,
@@ -189,6 +190,15 @@ const Rentals = () => {
         ...prev,
         book_id: selectedOption.value
       }));
+    }
+  };
+
+  const handleStatusChange = async (rentalId, newStatus) => {
+    try {
+      await dispatch(updateRentalStatus({ id: rentalId, status: newStatus })).unwrap();
+      toast.success('Status updated successfully!');
+    } catch (error) {
+      toast.error(error.message || 'Failed to update status');
     }
   };
 
@@ -244,14 +254,15 @@ const Rentals = () => {
             break;
             
           case 'activeRentals': 
-            await dispatch(createActiveRental({
+            const activeRentalData = {
               user_id: formData.user_id,
               book_id: formData.book_id,
-              reservation_id: formData.reservation_id,
               membership_card_number: formData.membership_card_number,
               rental_days: formData.rental_days,
-              rental_date: formData.rental_date
-            })).unwrap();
+              rental_date: formData.rental_date,
+              status: formData.status || 'active'
+            };
+            await dispatch(createActiveRental(activeRentalData)).unwrap();
             toast.success('Active rental created successfully!');
             break;
             
@@ -291,9 +302,12 @@ const Rentals = () => {
         return 'status-completed';
       case 'pending':
       case 'active':
+      case 'waiting':
         return 'status-pending';
       case 'failed':
       case 'overdue':
+      case 'expired':
+      case 'cancelled':
         return 'status-failed';
       default:
         return 'status-default';
@@ -461,7 +475,8 @@ const Rentals = () => {
                 isLoading={membershipsLoading}
                 loadingMessage={() => "Loading members..."}
                 noOptionsMessage={() => "No members found"}
-                required
+                required={!editItem}
+                isDisabled={editItem}
               />
             </div>
             <div className="form-group">
@@ -486,17 +501,22 @@ const Rentals = () => {
                 isLoading={booksLoading}
                 loadingMessage={() => "Loading books..."}
                 noOptionsMessage={() => "No books found"}
-                required
+                required={!editItem}
+                isDisabled={editItem}
               />
             </div>
             <div className="form-group">
-              <label>Reservation ID</label>
-              <input
-                type="text"
-                name="reservation_id"
-                value={formData.reservation_id || ''}
+              <label>Status *</label>
+              <select
+                name="status"
+                value={formData.status || 'active'}
                 onChange={handleInputChange}
-              />
+                required
+              >
+                <option value="active">Active</option>
+                <option value="overdue">Overdue</option>
+                <option value="returned">Returned</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Rental Days *</label>
@@ -730,7 +750,7 @@ const Rentals = () => {
                   <tr key={rental.id}>
                     <td>{rental.id}</td>
                     <td>{rental.user?.name || 'N/A'}</td>
-                    <td>{rental.active_rental.membership_card_number || 'N/A'}</td>
+                    <td>{rental.active_rental?.membership_card_number || 'N/A'}</td>
                     <td>{new Date(rental.rental_date).toLocaleDateString()}</td>
                     <td>{new Date(rental.due_date).toLocaleDateString()}</td>
                     <td>{rental.return_date ? new Date(rental.return_date).toLocaleDateString() : 'Not returned'}</td>
@@ -826,7 +846,14 @@ const Rentals = () => {
                     <td>{new Date(active.rental_date).toLocaleDateString()}</td>
                     <td>{new Date(active.due_date).toLocaleDateString()}</td>
                     <td className={getStatusClass(active.status)}>
-                      {active.status || 'active'}
+                      <select
+                        value={active.status}
+                        onChange={(e) => handleStatusChange(active.id, e.target.value)}
+                      >
+                        <option value="active">Active</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="returned">Returned</option>
+                      </select>
                     </td>
                     <td className="action-buttons">
                       <button 
