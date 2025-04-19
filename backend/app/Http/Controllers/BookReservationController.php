@@ -22,6 +22,11 @@ class BookReservationController extends Controller
         $reservations = BookReservation::with(['user', 'book', 'membershipCard'])->latest()->get();
         return response()->json($reservations);
     }
+    public function show($id)
+{
+    return BookReservation::with(['user', 'book', 'membershipCard'])
+        ->findOrFail($id);
+}
     
     protected function checkStatuses()
     {
@@ -45,92 +50,121 @@ class BookReservationController extends Controller
     }
 
     // Create new reservation
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'book_id' => 'required|exists:book_to_rent,id',
-            'card_number' => 'required|exists:membership_cards,card_number',
-            'payment_method' => 'required|in:cash,credit_card',
-            'card_holder_name' => 'required_if:payment_method,credit_card|nullable|string|max:255',
-            'card_last_four' => 'required_if:payment_method,credit_card|nullable|string|size:4',
-            'card_expiration' => 'required_if:payment_method,credit_card|nullable|string|size:5'
-        ]);
-    
-        return DB::transaction(function () use ($validated) {
-            $membership = MembershipCard::where('card_number', $validated['card_number'])
-                ->where('valid_until', '>', now())
-                ->firstOrFail();
-    
-            $book = BookToRent::findOrFail($validated['book_id']);
-    
-            // Check if book is available for reservation
-            if ($book->availability_status !== 'available') {
-                return response()->json(['error' => 'Book not available for reservation'], 400);
-            }
-    
-            // Create the reservation
-            $reservation = BookReservation::create([
-                'user_id' => $membership->user_id,
-                'membership_card_id' => $membership->id,
-                'book_id' => $book->id,
-                'reservation_code' => 'RES-' . Str::upper(Str::random(6)),
-                'payment_method' => $validated['payment_method'],
-                'card_holder_name' => $validated['payment_method'] === 'credit_card' ? $validated['card_holder_name'] : null,
-                'card_last_four' => $validated['payment_method'] === 'credit_card' ? $validated['card_last_four'] : null,
-                'card_expiration' => $validated['payment_method'] === 'credit_card' ? $validated['card_expiration'] : null,
-                'status' => 'waiting',
-                'pickup_deadline' => now()->addDays(3)
-            ]);
-    
-            // Update book status to reserved (regardless of stock count)
-            $book->update([
-                'availability_status' => 'reserved',
-                'stock' => $book->stock - 1  // Also decrement stock if needed
-            ]);
-    
-            return response()->json(
-                BookReservation::with(['book', 'user', 'membershipCard'])->find($reservation->id),
-                201
-            );
-            
-        });
-    }
+    // Create new reservation
+public function store(Request $request)
+{
+    $validated = $request->validate([
+        'book_id' => 'required|exists:book_to_rent,id',
+        'card_number' => 'required|exists:membership_cards,card_number',
+        'payment_method' => 'required|in:cash,credit_card',
+        'card_holder_name' => 'required_if:payment_method,credit_card|nullable|string|max:255',
+        'card_last_four' => 'required_if:payment_method,credit_card|nullable|string|size:4',
+        'card_expiration' => 'required_if:payment_method,credit_card|nullable|string|size:5',
+        'staff_notes' => 'nullable|string' // Added optional staff_notes
+    ]);
 
-    // Update reservation
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'status' => 'sometimes|in:waiting,picked,expired,cancelled',
-            'staff_notes' => 'sometimes|string|nullable'
-        ]);
+    return DB::transaction(function () use ($validated) {
+        $membership = MembershipCard::where('card_number', $validated['card_number'])
+            ->where('valid_until', '>', now())
+            ->firstOrFail();
 
-        $reservation = BookReservation::findOrFail($id);
-        
-        // Handle status change to 'picked'
-        if (isset($validated['status']) && $validated['status'] === 'picked') {
-            return $this->createActiveRentalFromReservation($reservation);
+        $book = BookToRent::findOrFail($validated['book_id']);
+
+        // Check if book is available for reservation
+        if ($book->availability_status !== 'available') {
+            return response()->json(['error' => 'Book not available for reservation'], 400);
         }
 
-        // Handle status change to 'cancelled' - increment stock
-        if (isset($validated['status']) && $validated['status'] === 'cancelled' && $reservation->status !== 'cancelled') {
-            return DB::transaction(function () use ($reservation, $validated) {
+        // Create the reservation with all fields
+        $reservation = BookReservation::create([
+            'user_id' => $membership->user_id,
+            'membership_card_id' => $membership->id,
+            'book_id' => $book->id,
+            'reservation_code' => 'RES-' . Str::upper(Str::random(6)),
+            'payment_method' => $validated['payment_method'],
+            'card_holder_name' => $validated['payment_method'] === 'credit_card' ? $validated['card_holder_name'] : null,
+            'card_last_four' => $validated['payment_method'] === 'credit_card' ? $validated['card_last_four'] : null,
+            'card_expiration' => $validated['payment_method'] === 'credit_card' ? $validated['card_expiration'] : null,
+            'status' => 'waiting',
+            'staff_notes' => $validated['staff_notes'] ?? null, // Added staff_notes
+            'pickup_deadline' => now()->addDays(3)
+        ]);
+
+        // Update book status to reserved (regardless of stock count)
+        $book->update([
+            'availability_status' => 'reserved',
+            'stock' => $book->stock - 1  // Also decrement stock if needed
+        ]);
+
+        return response()->json(
+            BookReservation::with(['book', 'user', 'membershipCard'])->find($reservation->id),
+            201
+        );
+    });
+}
+
+    // Update reservation
+    // Update reservation - now supports updating any field
+public function update(Request $request, $id)
+{
+    $validated = $request->validate([
+        'status' => 'sometimes|in:waiting,picked,expired,cancelled',
+        'staff_notes' => 'sometimes|string|nullable',
+        'payment_method' => 'sometimes|in:cash,credit_card',
+        'card_holder_name' => 'sometimes|nullable|string|max:255',
+        'card_last_four' => 'sometimes|nullable|string|size:4',
+        'card_expiration' => 'sometimes|nullable|string|size:5',
+        'pickup_deadline' => 'sometimes|date'
+    ]);
+
+    $reservation = BookReservation::with(['book', 'membershipCard'])->findOrFail($id);
+
+    return DB::transaction(function () use ($reservation, $validated) {
+        // Handle status change to 'picked'
+        if (isset($validated['status'])) {
+            if ($validated['status'] === 'picked') {
+                return $this->createActiveRentalFromReservation($reservation);
+            }
+            
+            // Handle status change to 'cancelled' - increment stock
+            if ($validated['status'] === 'cancelled' && $reservation->status !== 'cancelled') {
                 $book = $reservation->book;
                 $book->increment('stock');
                 
-                // Update availability status if needed
                 if ($book->stock > 0 && $book->availability_status !== 'available') {
                     $book->update(['availability_status' => 'available']);
                 }
-
-                $reservation->update($validated);
-                return response()->json($reservation);
-            });
+            }
         }
 
-        $reservation->update($validated);
-        return response()->json($reservation);
-    }
+        // Update credit card info only if payment method is credit_card
+        if (isset($validated['payment_method'])) {
+            if ($validated['payment_method'] === 'cash') {
+                $validated['card_holder_name'] = null;
+                $validated['card_last_four'] = null;
+                $validated['card_expiration'] = null;
+            } elseif ($validated['payment_method'] === 'credit_card') {
+                // Ensure required credit card fields are present
+                if (!isset($validated['card_holder_name'])) {
+                    $validated['card_holder_name'] = $reservation->card_holder_name;
+                }
+                if (!isset($validated['card_last_four'])) {
+                    $validated['card_last_four'] = $reservation->card_last_four;
+                }
+                if (!isset($validated['card_expiration'])) {
+                    $validated['card_expiration'] = $reservation->card_expiration;
+                }
+            }
+        }
 
+        // Update the reservation with validated data
+        $reservation->update($validated);
+
+        return response()->json(
+            BookReservation::with(['book', 'user', 'membershipCard'])->find($reservation->id)
+        );
+    });
+}
     // Delete reservation
     public function destroy($id)
     {

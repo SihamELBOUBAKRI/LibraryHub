@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import Select from 'react-select';
 import { 
   fetchRentals, deleteRental, createRental, updateRental 
 } from "../../features/rentals/rentalsSlice";
@@ -15,7 +18,7 @@ import {
   fetchReservations, deleteReservation, updateReservation, createReservation 
 } from "../../features/reservations/bookReservationSlice";
 import { fetchMemberships } from "../../features/membership/membershipSlice";
-import Select from 'react-select';
+import { fetchBooksToRent } from "../../features/book_to_rent/book_to_rentSlice";
 import "../AdminDashboard/Purchases.css";
 
 const Rentals = () => {
@@ -37,19 +40,25 @@ const Rentals = () => {
   const { activeRentals = [], loading: activeRentalsLoading } = useSelector((state) => state.activeRentals || {});
   const { reservations = [], loading: reservationsLoading } = useSelector((state) => state.reservations || {});
   const { memberships = [], loading: membershipsLoading } = useSelector((state) => state.membership);
+  const { books = [], loading: booksLoading } = useSelector((state) => state.book_to_rent);
 
-
-  // Filter memberships to only show users with membership cards
-  const membersWithCards = memberships
+  // Prepare membership options for select
+  const membershipOptions = memberships
     .filter(card => card.user)
     .map(card => ({
-      ...card.user,
+      value: card.id,
+      label: `${card.user.name} (${card.card_number})`,
+      user: card.user,
       card_number: card.card_number
     }));
 
-  const membershipOptions = membersWithCards.map(user => ({
-    value: user.id,
-    label: `${user.name} (Card: ${user.card_number})`
+  // Prepare book options for select
+  const bookOptions = books
+  .filter(book => book.availability_status === 'available')
+  .map(book => ({
+    value: book.id,
+    label: `${book.title} (ID: ${book.id})`,
+    book
   }));
 
   useEffect(() => {
@@ -58,6 +67,7 @@ const Rentals = () => {
     dispatch(fetchActiveRentals());
     dispatch(fetchReservations());
     dispatch(fetchMemberships());
+    dispatch(fetchBooksToRent());
   }, [dispatch]);
 
   const handleSectionClick = (section) => {
@@ -69,10 +79,26 @@ const Rentals = () => {
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this item?")) {
       switch(selectedSection) {
-        case 'rentals': dispatch(deleteRental(id)); break;
-        case 'overdues': dispatch(deleteOverdue(id)); break;
-        case 'activeRentals': dispatch(deleteActiveRental(id)); break;
-        case 'reservations': dispatch(deleteReservation(id)); break;
+        case 'rentals': 
+          dispatch(deleteRental(id))
+            .then(() => toast.success('Rental deleted successfully!'))
+            .catch(error => toast.error('Failed to delete rental'));
+          break;
+        case 'overdues': 
+          dispatch(deleteOverdue(id))
+            .then(() => toast.success('Overdue record deleted successfully!'))
+            .catch(error => toast.error('Failed to delete overdue record'));
+          break;
+        case 'activeRentals': 
+          dispatch(deleteActiveRental(id))
+            .then(() => toast.success('Active rental deleted successfully!'))
+            .catch(error => toast.error('Failed to delete active rental'));
+          break;
+        case 'reservations': 
+          dispatch(deleteReservation(id))
+            .then(() => toast.success('Reservation deleted successfully!'))
+            .catch(error => toast.error('Failed to delete reservation'));
+          break;
         default: break;
       }
     }
@@ -86,7 +112,47 @@ const Rentals = () => {
 
   const handleAddNew = () => {
     setEditItem(null);
-    setFormData({});
+    const defaults = {
+      rentals: {
+        user_id: null,
+        book_id: null,
+        rental_days: 14,
+        rental_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        return_date: null,
+        days_late: 0
+      },
+      overdues: {
+        user_id: null,
+        book_id: null,
+        active_rental_id: null,
+        days_overdue: 1,
+        fine_amount: 5.00,
+        penalty_paid: false,
+        paid_date: null
+      },
+      activeRentals: {
+        user_id: null,
+        book_id: null,
+        reservation_id: null,
+        membership_card_number: '',
+        rental_days: 14,
+        rental_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        status: 'pending'
+      },
+      reservations: {
+        user_id: null,
+        book_id: null,
+        card_number: '',
+        payment_method: 'cash',
+        card_holder_name: '',
+        card_last_four: '',
+        card_expiration: '',
+        staff_notes: ''
+      }
+    };
+    setFormData(defaults[selectedSection] || {});
     setIsModalOpen(true);
   };
 
@@ -99,43 +165,121 @@ const Rentals = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleUserChange = (selectedOption) => {
-    setFormData(prev => ({
-      ...prev, 
-      user_id: selectedOption.value,
-      membership_card_number: membersWithCards.find(u => u.id === selectedOption.value)?.card_number || ''
-    }));
+  const handleUserChange = (selectedOption, isReservation = false) => {
+    if (!selectedOption) return;
+    
+    if (isReservation) {
+      setFormData(prev => ({
+        ...prev,
+        user_id: selectedOption.user.id,
+        card_number: selectedOption.card_number
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev, 
+        user_id: selectedOption.user.id,
+        membership_card_number: selectedOption.card_number
+      }));
+    }
   };
 
-  const handleFormSubmit = (e) => {
+  const handleBookChange = (selectedOption) => {
+    if (selectedOption) {
+      setFormData(prev => ({
+        ...prev,
+        book_id: selectedOption.value
+      }));
+    }
+  };
+
+  const handleFormSubmit = async (e) => {
     e.preventDefault();
     
-    if (editItem) {
-      switch(selectedSection) {
-        case 'rentals': 
-          dispatch(updateRental({ id: editItem.id, ...formData }));
-          break;
-        case 'overdues':
-          dispatch(updateOverdue({ id: editItem.id, ...formData }));
-          break;
-        case 'activeRentals':
-          dispatch(updateActiveRental({ id: editItem.id, ...formData }));
-          break;
-        case 'reservations':
-          dispatch(updateReservation({ id: editItem.id, updateData: formData }));
-          break;
-        default: break;
+    try {
+      if (editItem) {
+        const changedFields = {};
+        Object.keys(formData).forEach(key => {
+          if (formData[key] !== editItem[key]) {
+            changedFields[key] = formData[key];
+          }
+        });
+
+        if (Object.keys(changedFields).length === 0) {
+          setIsModalOpen(false);
+          return;
+        }
+
+        switch(selectedSection) {
+          case 'rentals': 
+            await dispatch(updateRental({ id: editItem.id, ...changedFields })).unwrap();
+            toast.success('Rental updated successfully!');
+            break;
+          case 'overdues':
+            await dispatch(updateOverdue({ id: editItem.id, ...changedFields })).unwrap();
+            toast.success('Overdue record updated successfully!');
+            break;
+          case 'activeRentals':
+            await dispatch(updateActiveRental({ id: editItem.id, ...changedFields })).unwrap();
+            toast.success('Active rental updated successfully!');
+            break;
+          case 'reservations':
+            await dispatch(updateReservation({ 
+              id: editItem.id, 
+              ...changedFields 
+            })).unwrap();
+            toast.success('Reservation updated successfully!');
+            break;
+          default: break;
+        }
+      } else {
+        switch(selectedSection) {
+          case 'rentals': 
+            await dispatch(createRental({
+              user_id: formData.user_id,
+              book_id: formData.book_id,
+              rental_days: formData.rental_days,
+              rental_date: formData.rental_date
+            })).unwrap();
+            toast.success('Rental created successfully!');
+            break;
+            
+          case 'activeRentals': 
+            await dispatch(createActiveRental({
+              user_id: formData.user_id,
+              book_id: formData.book_id,
+              reservation_id: formData.reservation_id,
+              membership_card_number: formData.membership_card_number,
+              rental_days: formData.rental_days,
+              rental_date: formData.rental_date
+            })).unwrap();
+            toast.success('Active rental created successfully!');
+            break;
+            
+          case 'reservations': 
+            const reservationData = {
+              book_id: formData.book_id,
+              card_number: formData.card_number,
+              payment_method: formData.payment_method,
+              staff_notes: formData.staff_notes || null,
+              ...(formData.payment_method === 'credit_card' && {
+                card_holder_name: formData.card_holder_name,
+                card_last_four: formData.card_last_four,
+                card_expiration: formData.card_expiration
+              })
+            };
+            await dispatch(createReservation(reservationData)).unwrap();
+            toast.success('Reservation created successfully!');
+            break;
+            
+          default: break;
+        }
       }
-    } else {
-      switch(selectedSection) {
-        case 'rentals': dispatch(createRental(formData)); break;
-        case 'activeRentals': dispatch(createActiveRental(formData)); break;
-        case 'reservations': dispatch(createReservation(formData)); break;
-        default: break;
-      }
+      
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error("Error saving data:", error);
+      toast.error(error.message || 'Failed to save data');
     }
-    
-    setIsModalOpen(false);
   };
 
   const getStatusClass = (status) => {
@@ -162,20 +306,21 @@ const Rentals = () => {
         return (
           <>
             <div className="form-group">
-              <label>Member</label>
+              <label>Member *</label>
               <Select
                 options={membershipOptions}
-                onChange={handleUserChange}
-                value={membershipOptions.find(option => option.value === formData.user_id)}
+                onChange={(option) => handleUserChange(option)}
+                value={membershipOptions.find(option => option.user.id === formData.user_id)}
                 isSearchable
                 placeholder="Search member..."
                 isLoading={membershipsLoading}
                 loadingMessage={() => "Loading members..."}
                 noOptionsMessage={() => "No members found"}
+                required
               />
             </div>
             <div className="form-group">
-              <label>Membership Card Number</label>
+              <label>Membership Card Number *</label>
               <input
                 type="text"
                 name="membership_card_number"
@@ -186,7 +331,21 @@ const Rentals = () => {
               />
             </div>
             <div className="form-group">
-              <label>Rental Days</label>
+              <label>Book *</label>
+              <Select
+                options={bookOptions}
+                onChange={handleBookChange}
+                value={bookOptions.find(option => option.value === formData.book_id)}
+                isSearchable
+                placeholder="Search book by title..."
+                isLoading={booksLoading}
+                loadingMessage={() => "Loading books..."}
+                noOptionsMessage={() => "No books found"}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Rental Days *</label>
               <input 
                 type="number" 
                 name="rental_days" 
@@ -197,6 +356,16 @@ const Rentals = () => {
                 required
               />
             </div>
+            <div className="form-group">
+              <label>Rental Date *</label>
+              <input 
+                type="date" 
+                name="rental_date" 
+                value={formData.rental_date || ''} 
+                onChange={handleInputChange}
+                required
+              />
+            </div>
           </>
         );
       
@@ -204,20 +373,21 @@ const Rentals = () => {
         return (
           <>
             <div className="form-group">
-              <label>Member</label>
+              <label>Member *</label>
               <Select
                 options={membershipOptions}
-                onChange={handleUserChange}
-                value={membershipOptions.find(option => option.value === formData.user_id)}
+                onChange={(option) => handleUserChange(option)}
+                value={membershipOptions.find(option => option.user.id === formData.user_id)}
                 isSearchable
                 placeholder="Search member..."
                 isLoading={membershipsLoading}
                 loadingMessage={() => "Loading members..."}
                 noOptionsMessage={() => "No members found"}
+                required
               />
             </div>
             <div className="form-group">
-              <label>Membership Card Number</label>
+              <label>Membership Card Number *</label>
               <input
                 type="text"
                 name="membership_card_number"
@@ -228,7 +398,31 @@ const Rentals = () => {
               />
             </div>
             <div className="form-group">
-              <label>Days Overdue</label>
+              <label>Book *</label>
+              <Select
+                options={bookOptions}
+                onChange={handleBookChange}
+                value={bookOptions.find(option => option.value === formData.book_id)}
+                isSearchable
+                placeholder="Search book by title..."
+                isLoading={booksLoading}
+                loadingMessage={() => "Loading books..."}
+                noOptionsMessage={() => "No books found"}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Active Rental ID *</label>
+              <input
+                type="text"
+                name="active_rental_id"
+                value={formData.active_rental_id || ''}
+                onChange={handleInputChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Days Overdue *</label>
               <input 
                 type="number" 
                 name="days_overdue" 
@@ -239,7 +433,7 @@ const Rentals = () => {
               />
             </div>
             <div className="form-group">
-              <label>Fine Amount</label>
+              <label>Fine Amount *</label>
               <input 
                 type="number" 
                 name="fine_amount" 
@@ -257,20 +451,21 @@ const Rentals = () => {
         return (
           <>
             <div className="form-group">
-              <label>Member</label>
+              <label>Member *</label>
               <Select
                 options={membershipOptions}
-                onChange={handleUserChange}
-                value={membershipOptions.find(option => option.value === formData.user_id)}
+                onChange={(option) => handleUserChange(option)}
+                value={membershipOptions.find(option => option.user.id === formData.user_id)}
                 isSearchable
                 placeholder="Search member..."
                 isLoading={membershipsLoading}
                 loadingMessage={() => "Loading members..."}
                 noOptionsMessage={() => "No members found"}
+                required
               />
             </div>
             <div className="form-group">
-              <label>Membership Card Number</label>
+              <label>Membership Card Number *</label>
               <input
                 type="text"
                 name="membership_card_number"
@@ -281,7 +476,30 @@ const Rentals = () => {
               />
             </div>
             <div className="form-group">
-              <label>Rental Days</label>
+              <label>Book *</label>
+              <Select
+                options={bookOptions}
+                onChange={handleBookChange}
+                value={bookOptions.find(option => option.value === formData.book_id)}
+                isSearchable
+                placeholder="Search book by title..."
+                isLoading={booksLoading}
+                loadingMessage={() => "Loading books..."}
+                noOptionsMessage={() => "No books found"}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Reservation ID</label>
+              <input
+                type="text"
+                name="reservation_id"
+                value={formData.reservation_id || ''}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="form-group">
+              <label>Rental Days *</label>
               <input 
                 type="number" 
                 name="rental_days" 
@@ -292,6 +510,16 @@ const Rentals = () => {
                 required
               />
             </div>
+            <div className="form-group">
+              <label>Rental Date *</label>
+              <input 
+                type="date" 
+                name="rental_date" 
+                value={formData.rental_date || ''} 
+                onChange={handleInputChange}
+                required
+              />
+            </div>
           </>
         );
       
@@ -299,20 +527,23 @@ const Rentals = () => {
         return (
           <>
             <div className="form-group">
-              <label>Member</label>
+              <label>Member *</label>
               <Select
                 options={membershipOptions}
-                onChange={handleUserChange}
-                value={membershipOptions.find(option => option.value === formData.user_id)}
+                onChange={(option) => handleUserChange(option, true)}
+                value={membershipOptions.find(option => 
+                  option.user.id === formData.user_id
+                )}
                 isSearchable
                 placeholder="Search member..."
                 isLoading={membershipsLoading}
                 loadingMessage={() => "Loading members..."}
                 noOptionsMessage={() => "No members found"}
+                required
               />
             </div>
             <div className="form-group">
-              <label>Membership Card Number</label>
+              <label>Membership Card Number *</label>
               <input
                 type="text"
                 name="card_number"
@@ -323,14 +554,27 @@ const Rentals = () => {
               />
             </div>
             <div className="form-group">
-              <label>Payment Method</label>
+              <label>Book *</label>
+              <Select
+                options={bookOptions}
+                onChange={handleBookChange}
+                value={bookOptions.find(option => option.value === formData.book_id)}
+                isSearchable
+                placeholder="Search book by title..."
+                isLoading={booksLoading}
+                loadingMessage={() => "Loading books..."}
+                noOptionsMessage={() => "No books found"}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Payment Method *</label>
               <select 
                 name="payment_method" 
-                value={formData.payment_method || ''} 
+                value={formData.payment_method || 'cash'} 
                 onChange={handleInputChange}
                 required
               >
-                <option value="">Select...</option>
                 <option value="cash">Cash</option>
                 <option value="credit_card">Credit Card</option>
               </select>
@@ -338,7 +582,7 @@ const Rentals = () => {
             {formData.payment_method === 'credit_card' && (
               <>
                 <div className="form-group">
-                  <label>Card Holder Name</label>
+                  <label>Card Holder Name *</label>
                   <input 
                     type="text" 
                     name="card_holder_name" 
@@ -348,7 +592,7 @@ const Rentals = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Last 4 Digits</label>
+                  <label>Last 4 Digits *</label>
                   <input 
                     type="text" 
                     name="card_last_four" 
@@ -359,7 +603,7 @@ const Rentals = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Expiration (MM/YY)</label>
+                  <label>Expiration (MM/YY) *</label>
                   <input 
                     type="text" 
                     name="card_expiration" 
@@ -371,6 +615,16 @@ const Rentals = () => {
                 </div>
               </>
             )}
+            <div className="form-group">
+              <label>Staff Notes</label>
+              <textarea
+                name="staff_notes"
+                value={formData.staff_notes || ''}
+                onChange={handleInputChange}
+                rows={3}
+                placeholder="Optional notes about the reservation"
+              />
+            </div>
           </>
         );
       
@@ -629,6 +883,7 @@ const Rentals = () => {
                   <th>Reservation Code</th>
                   <th>Member</th>
                   <th>Card Number</th>
+                  <th>Payment Method</th>
                   <th>Reservation Date</th>
                   <th>Expiry Date</th>
                   <th>Status</th>
@@ -648,7 +903,8 @@ const Rentals = () => {
                       <td>{reservation.id}</td>
                       <td>{reservation.reservation_code || 'N/A'}</td>
                       <td>{reservation.user?.name || 'N/A'}</td>
-                      <td>{reservation.card_number || 'N/A'}</td>
+                      <td>{reservation.membership_card?.card_number || 'N/A'}</td>
+                      <td>{reservation.payment_method || 'N/A'}</td>
                       <td>{new Date(reservation.created_at).toLocaleDateString()}</td>
                       <td>
                         {new Date(new Date(reservation.created_at).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString()}
@@ -664,7 +920,7 @@ const Rentals = () => {
                             if (statusChangeData.reservationId === reservation.id) {
                               dispatch(updateReservation({
                                 id: reservation.id,
-                                updateData: { status: statusChangeData.newStatus }
+                                status: statusChangeData.newStatus
                               }));
                               setStatusChangeData({ reservationId: null, newStatus: '' });
                             }

@@ -32,12 +32,12 @@ export const createOrder = createAsyncThunk(
 
 export const updateOrder = createAsyncThunk(
   "orders/updateOrder",
-  async ({ id, updatedData }, { rejectWithValue }) => {
+  async ({ id, ...updatedFields }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.put(`/orders/${id}`, updatedData);
-      return response.data;
+      const response = await axiosInstance.put(`/orders/${id}`, updatedFields);
+      return { id, ...response.data };
     } catch (error) {
-      return rejectWithValue(error.response.data);
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -158,10 +158,15 @@ const ordersSlice = createSlice({
           (order) => order.id === action.payload.id
         );
         if (index !== -1) {
-          state.orders[index] = action.payload;
+          // Only update the fields that were changed
+          Object.keys(action.payload).forEach(key => {
+            if (key !== 'id') {
+              state.orders[index][key] = action.payload[key];
+            }
+          });
         }
         if (state.currentOrder?.id === action.payload.id) {
-          state.currentOrder = action.payload;
+          state.currentOrder = { ...state.currentOrder, ...action.payload };
         }
       })
       .addCase(updateOrder.rejected, (state, action) => {

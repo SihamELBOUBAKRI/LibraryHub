@@ -205,32 +205,64 @@ class OrderController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $order = Order::find($id);
+{
+    $order = Order::find($id);
 
-        if (!$order) {
-            return response()->json(['message' => 'Order not found'], 404);
+    if (!$order) {
+        return response()->json(['message' => 'Order not found'], 404);
+    }
+
+    $validator = Validator::make($request->all(), [
+        'status' => 'sometimes|string|in:Pending,Paid,Shipped,Cancelled',
+        'payment_status' => 'sometimes|string|in:Pending,Completed,Failed,Refunded',
+        'transaction_id' => 'sometimes|nullable|string|max:255',
+        'shipping_tracking_number' => 'sometimes|nullable|string|max:255',
+        'expected_delivery_date' => 'sometimes|nullable|date',
+        'book_id' => 'sometimes|exists:book_to_sell,id',
+        'quantity' => 'sometimes|integer|min:1',
+        'shipping_address' => 'sometimes|string|max:255',
+        'payment_method' => 'sometimes|string|in:Credit Card,PayPal,Bank Transfer,Cash on Delivery',
+        'notes' => 'sometimes|nullable|string|max:500',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    DB::beginTransaction();
+    try {
+        // Get the validated data
+        $validatedData = $validator->validated();
+        
+        // Handle book_id change - update book price and total price if book changes
+        if (isset($validatedData['book_id'])) {
+            $book = BookToSell::find($validatedData['book_id']);
+            $validatedData['book_price'] = $book->price;
+            $validatedData['total_price'] = $book->price * ($validatedData['quantity'] ?? $order->quantity);
         }
-
-        $validator = Validator::make($request->all(), [
-            'status' => 'sometimes|string|in:Pending,Paid,Shipped,Cancelled',
-            'payment_status' => 'sometimes|string|in:Pending,Completed,Failed,Refunded',
-            'transaction_id' => 'sometimes|nullable|string|max:255',
-            'shipping_tracking_number' => 'sometimes|nullable|string|max:255',
-            'expected_delivery_date' => 'sometimes|nullable|date',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+        
+        // Handle quantity change - update total price if quantity changes
+        if (isset($validatedData['quantity']) && !isset($validatedData['book_id'])) {
+            $validatedData['total_price'] = $order->book_price * $validatedData['quantity'];
         }
-
-        $order->update($validator->validated());
-
+        
+        // Update the order
+        $order->update($validatedData);
+        
+        DB::commit();
+        
         return response()->json([
             'message' => 'Order updated successfully!',
             'data' => $order->fresh()
         ]);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        return response()->json([
+            'message' => 'Failed to update order',
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     public function destroy($id)
     {

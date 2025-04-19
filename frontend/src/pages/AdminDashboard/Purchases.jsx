@@ -162,7 +162,7 @@ const Purchases = () => {
           updateOrderStatus({
             id: orderId,
             status: newStatus,
-            payment_status: paymentStatus, // send null or the desired value
+            payment_status: paymentStatus,
           })
         ).unwrap();
         toast.success("Order status updated successfully!");
@@ -279,13 +279,14 @@ const Purchases = () => {
             id: editItem.id, 
             ...changedFields 
           })).unwrap();
+          toast.success('Transaction updated successfully!');
         } else if (selectedSection === 'purchases') {
           // Create object with only changed fields for purchases
           const changedFields = {};
           
           // Check each field for changes
-          if (formData.user_id !== editItem.user_id) changedFields.user_id = formData.user_id?.value || formData.user_id;
-          if (formData.book_id !== editItem.book_id) changedFields.book_id = formData.book_id?.value || formData.book_id;
+          if (formData.user_id !== editItem.user_id) changedFields.user_id = formData.user_id;
+          if (formData.book_id !== editItem.book_id) changedFields.book_id = formData.book_id;
           if (formData.quantity !== editItem.quantity) changedFields.quantity = formData.quantity;
           if (formData.price_per_unit !== editItem.price_per_unit) changedFields.price_per_unit = formData.price_per_unit;
           if (formData.purchase_date !== editItem.purchase_date) changedFields.purchase_date = formData.purchase_date;
@@ -309,18 +310,31 @@ const Purchases = () => {
             id: editItem.id, 
             ...changedFields 
           })).unwrap();
+          toast.success('Purchase updated successfully!');
         } else if (selectedSection === 'orders') {
-          const updatedData = {
-            ...formData,
-            user_id: formData.user_id?.value || formData.user_id,
-            book_id: formData.book_id?.value || formData.book_id
-          };
+          // Create object with only changed fields for orders
+          const changedFields = {};
+          
+          // Check each field for changes
+          if (formData.user_id !== editItem.user_id) changedFields.user_id = formData.user_id;
+          if (formData.book_id !== editItem.book_id) changedFields.book_id = formData.book_id;
+          if (formData.quantity !== editItem.quantity) changedFields.quantity = formData.quantity;
+          if (formData.shipping_address !== editItem.shipping_address) changedFields.shipping_address = formData.shipping_address;
+          if (formData.status !== editItem.status) changedFields.status = formData.status;
+          if (formData.payment_method !== editItem.payment_method) changedFields.payment_method = formData.payment_method;
+          
+          if (Object.keys(changedFields).length === 0) {
+            toast.info("No changes detected");
+            setIsModalOpen(false);
+            return;
+          }
+          
           result = await dispatch(updateOrder({ 
             id: editItem.id, 
-            ...updatedData 
+            ...changedFields 
           })).unwrap();
+          toast.success('Order updated successfully!');
         }
-        toast.success(`${selectedSection.slice(0, -1)} updated successfully!`);
       } else {
         // For adding new items
         const submissionData = {
@@ -659,8 +673,8 @@ const Purchases = () => {
               >
                 <option value="">Select status...</option>
                 <option value="Pending">Pending</option>
-                <option value="Processing">Processing</option>
-                <option value="Completed">Completed</option>
+                <option value="Paid">Paid</option>
+                <option value="Shipped">Shipped</option>
                 <option value="Cancelled">Cancelled</option>
               </select>
             </div>

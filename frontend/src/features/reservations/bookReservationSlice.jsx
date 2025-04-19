@@ -41,13 +41,12 @@ export const createReservation = createAsyncThunk(
   }
 );
 
-// Add this to your bookReservationSlice.js
 export const updateReservation = createAsyncThunk(
   'reservations/update',
-  async ({ id, updateData }, { rejectWithValue }) => {
+  async ({ id, ...updatedFields }, { rejectWithValue }) => {
     try {
-      const response = await axiosInstance.put(`reservations/${id}`, updateData);
-      return response.data;
+      const response = await axiosInstance.put(`reservations/${id}`, updatedFields);
+      return { id, ...response.data };
     } catch (err) {
       return rejectWithValue(err.response?.data);
     }
@@ -186,24 +185,40 @@ const bookReservationSlice = createSlice({
       .addCase(markReservationPicked.rejected, (state, action) => {
         state.status = 'failed';
         state.error = action.payload;
-      })// Add this case to your extraReducers
+      }).addCase(updateReservation.pending, (state) => {
+        state.status = 'loading';
+      })
       .addCase(updateReservation.fulfilled, (state, action) => {
+        state.status = 'succeeded';
         const index = state.reservations.findIndex(
           res => res.id === action.payload.id
         );
         if (index !== -1) {
-          state.reservations[index] = action.payload;
+          // Only update the fields that were changed
+          Object.keys(action.payload).forEach(key => {
+            if (key !== 'id') {
+              state.reservations[index][key] = action.payload[key];
+            }
+          });
         }
         
-        // Also update in userReservations if it exists there
         const userIndex = state.userReservations.findIndex(
           res => res.id === action.payload.id
         );
         if (userIndex !== -1) {
-          state.userReservations[userIndex] = action.payload;
+          Object.keys(action.payload).forEach(key => {
+            if (key !== 'id') {
+              state.userReservations[userIndex][key] = action.payload[key];
+            }
+          });
         }
       })
 
+      .addCase(updateReservation.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload;
+      })
+      
       // DELETE
       .addCase(deleteReservation.pending, (state) => {
         state.status = 'loading';

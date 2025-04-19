@@ -45,14 +45,20 @@ public function store(Request $request)
     ]);
 
     return DB::transaction(function () use ($validated) {
+        // Get the active rental first
+        $activeRental = ActiveRental::findOrFail($validated['active_rental_id']);
+        
         // Create the rental history record
         $rental = Rental::create($validated);
-
+        
+        // Update the active rental status
+        $activeRental->markAsReturned();
+        
         // Update the book status to available
         BookToRent::where('id', $validated['book_id'])
                 ->update(['availability_status' => 'available']);
 
-        return response()->json($rental, 201);
+        return response()->json($rental->load(['book', 'user', 'activeRental']), 201);
     });
 }
 
