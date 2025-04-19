@@ -719,3 +719,14 @@ td {
   body.modal-open {
     overflow: hidden;
   }
+  .info-text {
+    color: #2e7d32;
+    font-size: 0.8rem;
+    margin-top: 5px;
+  }
+  
+  .warning-text {
+    color: #d32f2f;
+    font-size: 0.8rem;
+    margin-top: 5px;
+  }

@@ -20,10 +20,17 @@ export const createRental = createAsyncThunk("rentals/createRental", async (newR
 });
 
 // Update a rental record
-export const updateRental = createAsyncThunk("rentals/updateRental", async ({ id, updatedData }) => {
-  const response = await axiosInstance.put(`/rentals/${id}`, updatedData);
-  return response.data;
-});
+export const updateRental = createAsyncThunk(
+  "rentals/updateRental",
+  async ({ id, ...updatedFields }, { rejectWithValue }) => {
+    try {
+      const response = await axiosInstance.put(`/rentals/${id}`, updatedFields);
+      return { id, ...response.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
 
 // Delete a rental record
 export const deleteRental = createAsyncThunk("rentals/deleteRental", async (id) => {
@@ -75,11 +82,25 @@ const rentalSlice = createSlice({
       })
 
       // Update a rental
+      .addCase(updateRental.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(updateRental.fulfilled, (state, action) => {
+        state.loading = false;
         const index = state.rentals.findIndex((rental) => rental.id === action.payload.id);
         if (index !== -1) {
-          state.rentals[index] = action.payload;
+          // Only update the fields that were changed
+          Object.keys(action.payload).forEach(key => {
+            if (key !== 'id') {
+              state.rentals[index][key] = action.payload[key];
+            }
+          });
         }
+      })
+      .addCase(updateRental.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       })
 
       // Delete a rental

@@ -34,7 +34,7 @@ export const deleteOverdue = createAsyncThunk("overdues/deleteOverdue", async (i
 const overdueSlice = createSlice({
     name: "overdue",
     initialState: {
-        data: [],
+        overdues: [],
         userOverdues: [], // Store overdues for a specific user
         loading: false,
         error: null,
@@ -48,7 +48,7 @@ const overdueSlice = createSlice({
             })
             .addCase(fetchOverdues.fulfilled, (state, action) => {
                 state.loading = false;
-                state.data = action.payload;
+                state.overdues = action.payload;
             })
             .addCase(fetchOverdues.rejected, (state, action) => {
                 state.loading = false;
@@ -74,7 +74,7 @@ const overdueSlice = createSlice({
             })
             .addCase(createOverdue.fulfilled, (state, action) => {
                 state.loading = false;
-                state.data.push(action.payload);
+                state.overdues.push(action.payload);
             })
             .addCase(createOverdue.rejected, (state, action) => {
                 state.loading = false;
@@ -87,9 +87,9 @@ const overdueSlice = createSlice({
             })
             .addCase(updateOverdue.fulfilled, (state, action) => {
                 state.loading = false;
-                const index = state.data.findIndex(overdue => overdue.id === action.payload.id);
+                const index = state.overdues.findIndex(overdue => overdue.id === action.payload.id);
                 if (index !== -1) {
-                    state.data[index] = action.payload;
+                    state.overdues[index] = action.payload;
                 }
             })
             .addCase(updateOverdue.rejected, (state, action) => {
@@ -103,7 +103,7 @@ const overdueSlice = createSlice({
             })
             .addCase(deleteOverdue.fulfilled, (state, action) => {
                 state.loading = false;
-                state.data = state.data.filter(overdue => overdue.id !== action.payload);
+                state.overdues = state.overdues.filter(overdue => overdue.id !== action.payload);
             })
             .addCase(deleteOverdue.rejected, (state, action) => {
                 state.loading = false;
