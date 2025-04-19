@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchUsers, addUser, updateUser, deleteUser } from "../../features/users/userSlice";
-import { fetchMemberships, createMembership, updateMembership, deleteMembership } from "../../features/membership/membershipSlice";
+import { fetchUsers, deleteUser } from "../../features/users/userSlice";
+import { fetchMemberships, deleteMembership } from "../../features/membership/membershipSlice";
 import { logout } from "../../features/auth/authSlice";
-import { FaUsers, FaShoppingBag, FaSignOutAlt, FaEdit, FaTrash, FaIdCard } from "react-icons/fa";
+import { FaUsers, FaSignOutAlt, FaTrash, FaIdCard, FaChartLine } from "react-icons/fa";
 import "./AdminDashboard.css";
 import { useNavigate } from "react-router-dom";
 import { fetchOrders } from "../../features/orders/orderSlice";
-import { FaChartLine, FaBook } from "react-icons/fa";
 import { Line, Bar } from 'react-chartjs-2';
 import Chart from 'chart.js/auto';
 
@@ -20,6 +19,7 @@ const AdminDashboard = () => {
     const [orderData, setOrderData] = useState(null);
     const [mostOrderedBooks, setMostOrderedBooks] = useState([]);
     const [activeSection, setActiveSection] = useState("dashboard");
+    const [timeFilter, setTimeFilter] = useState('all');
 
     useEffect(() => {
         dispatch(fetchUsers());
@@ -27,21 +27,59 @@ const AdminDashboard = () => {
         dispatch(fetchOrders());
     }, [dispatch]);
 
-
     useEffect(() => {
         if (orders.length > 0) {
             processOrderData(orders);
             processMostOrderedBooks(orders);
         }
-    }, [orders]);
+    }, [orders, timeFilter]);
 
     const processOrderData = (orders) => {
-        // Group orders by date and count orders per day
-        const ordersByDate = orders.reduce((acc, order) => {
-            const date = new Date(order.created_at).toLocaleDateString();
-            acc[date] = (acc[date] || 0) + 1;
+        const now = new Date();
+        let startDate = new Date(0); // Default to beginning of time
+        let groupByHour = false;
+
+        // Calculate start date based on filter
+        switch(timeFilter) {
+            case '24h':
+                startDate = new Date(now.getTime() - (24 * 60 * 60 * 1000));
+                groupByHour = true;
+                break;
+            case 'week':
+                startDate = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+                break;
+            case 'month':
+                startDate = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate());
+                break;
+            case 'year':
+                startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+                break;
+            case 'all':
+            default:
+                // No filtering needed
+                break;
+        }
+
+        // Filter orders based on time period
+        const filteredOrders = timeFilter === 'all' 
+            ? orders 
+            : orders.filter(order => new Date(order.created_at) >= startDate);
+
+        // Group orders by date (or hour for 24h filter)
+        const ordersByDate = filteredOrders.reduce((acc, order) => {
+            const date = new Date(order.created_at);
+            let key;
+            
+            if (groupByHour) {
+                key = `${date.getHours()}:00`; // Group by hour
+            } else {
+                key = date.toLocaleDateString(); // Group by day
+            }
+            
+            acc[key] = (acc[key] || 0) + 1;
             return acc;
         }, {});
+
         const dates = Object.keys(ordersByDate);
         const counts = Object.values(ordersByDate);
 
@@ -70,7 +108,6 @@ const AdminDashboard = () => {
     };
 
     const processMostOrderedBooks = (orders) => {
-        // Extract all books from all orders
         const allBooks = orders.flatMap(order => 
             order.books ? order.books.map(book => ({
                 id: book.id,
@@ -79,7 +116,6 @@ const AdminDashboard = () => {
             })) : []
         );
 
-        // Sum quantities by book id
         const bookQuantities = allBooks.reduce((acc, book) => {
             if (!acc[book.id]) {
                 acc[book.id] = { ...book, total: 0 };
@@ -88,10 +124,9 @@ const AdminDashboard = () => {
             return acc;
         }, {});
 
-        // Convert to array and sort by total quantity
         const sortedBooks = Object.values(bookQuantities)
             .sort((a, b) => b.total - a.total)
-            .slice(0, 10); // Take top 10
+            .slice(0, 10);
 
         setMostOrderedBooks(sortedBooks);
     };
@@ -109,6 +144,16 @@ const AdminDashboard = () => {
         ],
     };
 
+    const getChartTitle = () => {
+        switch(timeFilter) {
+            case '24h': return 'Orders in Last 24 Hours';
+            case 'week': return 'Orders in Last Week';
+            case 'month': return 'Orders in Last Month';
+            case 'year': return 'Orders in Last Year';
+            default: return 'Orders Over Time';
+        }
+    };
+
     const handleLogout = () => {
         dispatch(logout());
         navigate("/login");
@@ -117,10 +162,6 @@ const AdminDashboard = () => {
     const handleAddUser = () => {
         navigate("/admin/add-user");
     };
-
-    
-
-    
 
     return (
         <div className="admin-dashboard">
@@ -156,9 +197,21 @@ const AdminDashboard = () => {
                         </div>
 
                         <div className="charts-container">
-                            {/* Orders Over Time Chart */}
                             <div className="chart-container">
-                                <h3>Orders Over Time</h3>
+                                <div className="chart-header">
+                                    <h3>{getChartTitle()}</h3>
+                                    <select 
+                                        value={timeFilter}
+                                        onChange={(e) => setTimeFilter(e.target.value)}
+                                        className="time-filter-select"
+                                    >
+                                        <option value="all">All Time</option>
+                                        <option value="24h">Last 24 Hours</option>
+                                        <option value="week">Last Week</option>
+                                        <option value="month">Last Month</option>
+                                        <option value="year">Last Year</option>
+                                    </select>
+                                </div>
                                 {orderData ? (
                                     <Line 
                                         data={orderData} 
@@ -184,7 +237,7 @@ const AdminDashboard = () => {
                                                 x: {
                                                     title: {
                                                         display: true,
-                                                        text: 'Date'
+                                                        text: timeFilter === '24h' ? 'Hour' : 'Date'
                                                     }
                                                 }
                                             }
@@ -195,39 +248,38 @@ const AdminDashboard = () => {
                                 )}
                             </div>
 
-                            {/* Most Ordered Books Chart */}
                             <div className="chart-container">
                                 <h3>Top 10 Most Ordered Books</h3>
                                 {mostOrderedBooks.length > 0 ? (
                                     <Bar
-                                    data={mostOrderedBooksData}
-                                    options={{
-                                        indexAxis: 'y', // This makes the chart horizontal
-                                        responsive: true,
-                                        plugins: {
-                                            legend: {
-                                                display: false,
-                                            },
-                                        },
-                                        scales: {
-                                            x: {
-                                                beginAtZero: true,
-                                                title: {
-                                                    display: true,
-                                                    text: 'Number Ordered'
-                                                }
-                                            },
-                                            y: {
-                                                title: {
-                                                    display: true
+                                        data={mostOrderedBooksData}
+                                        options={{
+                                            indexAxis: 'y',
+                                            responsive: true,
+                                            plugins: {
+                                                legend: {
+                                                    display: false,
                                                 },
-                                                ticks: {
-                                                    autoSkip: false // Ensures all labels are shown
+                                            },
+                                            scales: {
+                                                x: {
+                                                    beginAtZero: true,
+                                                    title: {
+                                                        display: true,
+                                                        text: 'Number Ordered'
+                                                    }
+                                                },
+                                                y: {
+                                                    title: {
+                                                        display: true
+                                                    },
+                                                    ticks: {
+                                                        autoSkip: false
+                                                    }
                                                 }
                                             }
-                                        }
-                                    }}
-                                />
+                                        }}
+                                    />
                                 ) : (
                                     <p>{ordersLoading ? 'Loading book data...' : 'No book data available'}</p>
                                 )}
@@ -235,6 +287,7 @@ const AdminDashboard = () => {
                         </div>
                     </>
                 )}
+
                 {activeSection === "users" && (
                     <div className="users-section">
                         <div className="section-header">
@@ -263,11 +316,12 @@ const AdminDashboard = () => {
                                         <td>{user.role}</td>
                                         <td>{user.isamember ? "Yes" : "No"}</td>
                                         <td className="actions">
-                                        <button 
-                                            className="action-btn edit"
-                                            onClick={() => navigate(`/admin/add-membership/${user.id}`)}                                            title="Add Membership"
+                                            <button 
+                                                className="action-btn edit"
+                                                onClick={() => navigate(`/admin/add-membership/${user.id}`)}
+                                                title="Add Membership"
                                             >
-                                            <FaIdCard />
+                                                <FaIdCard />
                                             </button>
                                             <button 
                                                 className="action-btn delete"
@@ -294,7 +348,7 @@ const AdminDashboard = () => {
                                     <th>Email</th>
                                     <th>Membership Type</th>
                                     <th>Valid Until</th>
-                                    <th>card number</th>
+                                    <th>Card Number</th>
                                     <th>Amount Paid</th>
                                     <th>Actions</th>
                                 </tr>
@@ -323,10 +377,7 @@ const AdminDashboard = () => {
                     </div>
                 )}
             </div>
-
         </div>
-
-        
     );
 };
 

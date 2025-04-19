@@ -121,20 +121,28 @@ const Rentals = () => {
     }
   };
 
-  const handleEdit = (item) => {
-    setEditItem(item);
-    setFormData({
-      ...item,
-      ...(selectedSection === 'activeRentals' && {
-        user_id: item.user?.id || null,
-        membership_card_number: item.membership_card_number || ''
-      }),
-      ...(selectedSection === 'rentals' && {
-        active_rental_id: item.active_rental_id || null
-      })
-    });
-    setIsModalOpen(true);
-  };
+  // In handleEdit function:
+const handleEdit = (item) => {
+  setEditItem(item);
+  setFormData({
+    ...item,
+    ...(selectedSection === 'activeRentals' && {
+      user_id: item.user?.id || null,
+      membership_card_number: item.membership_card_number || '',
+      payment_method: item.payment_method || 'cash',
+      card_holder_name: item.card_holder_name || '',
+      card_last_four: item.card_last_four || '',
+      card_expiration: item.card_expiration || '',
+      // Format dates for input fields
+      rental_date: item.rental_date ? item.rental_date.split('T')[0] : '',
+      due_date: item.due_date ? item.due_date.split('T')[0] : ''
+    }),
+    ...(selectedSection === 'rentals' && {
+      active_rental_id: item.active_rental_id || null
+    })
+  });
+  setIsModalOpen(true);
+};
 
   const handleAddNew = () => {
     setEditItem(null);
@@ -161,6 +169,10 @@ const Rentals = () => {
         user_id: null,
         book_id: null,
         membership_card_number: '',
+        payment_method: 'cash',
+        card_holder_name: '',
+        card_last_four: '',
+        card_expiration: '',
         rental_days: 14,
         rental_date: new Date().toISOString().split('T')[0],
         due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -264,18 +276,22 @@ const Rentals = () => {
     try {
       if (editItem) {
         const changedFields = {};
+        const dateFields = ['rental_date', 'due_date']; // Add other date fields if needed
+
         Object.keys(formData).forEach(key => {
-          if (formData[key] !== editItem[key]) {
+          let currentValue = formData[key];
+          let originalValue = editItem[key];
+          
+          // Handle date comparisons
+          if (dateFields.includes(key)) {
+            currentValue = currentValue ? new Date(currentValue).toISOString() : '';
+            originalValue = originalValue ? new Date(originalValue).toISOString() : '';
+          }
+          
+          if (currentValue !== originalValue) {
             changedFields[key] = formData[key];
           }
         });
-  
-        if (Object.keys(changedFields).length === 0) {
-          toast.info('No changes detected');
-          setIsModalOpen(false);
-          return;
-        }
-  
         switch(selectedSection) {
           case 'rentals': 
             // Always calculate days late based on current dates
@@ -312,29 +328,31 @@ const Rentals = () => {
             toast.success('Overdue record updated successfully!');
             break;
             
-          case 'activeRentals':
-            // Calculate new due date if rental days changed
-            let newDueDate = formData.due_date;
-            if (changedFields.rental_days) {
-              newDueDate = new Date(
-                new Date(formData.rental_date).getTime() + 
-                changedFields.rental_days * 24 * 60 * 60 * 1000
-              ).toISOString().split('T')[0];
-            }
-            
-            const activeRentalUpdateData = {
-              id: editItem.id,
-              ...(changedFields.book_id && { book_id: changedFields.book_id }),
-              ...(changedFields.rental_days && { 
-                rental_days: changedFields.rental_days,
-                due_date: newDueDate
+            case 'activeRentals': 
+            // Format dates for backend
+            const formattedData = {
+              ...changedFields,
+              ...(changedFields.rental_date && { 
+                rental_date: new Date(changedFields.rental_date).toISOString()
               }),
-              ...(changedFields.status && { status: changedFields.status })
+              ...(changedFields.due_date && { 
+                due_date: new Date(changedFields.due_date).toISOString()
+              })
             };
-            
-            await dispatch(updateActiveRental(activeRentalUpdateData)).unwrap();
-            toast.success('Active rental updated successfully!');
-            break;
+            // Calculate new due date if rental days changed
+          if (changedFields.rental_days) {
+            const rentalDate = changedFields.rental_date || formData.rental_date;
+            formattedData.due_date = new Date(
+              new Date(rentalDate).getTime() + 
+              changedFields.rental_days * 24 * 60 * 60 * 1000
+            ).toISOString();
+          }
+          await dispatch(updateActiveRental({
+            id: editItem.id,
+            ...formattedData
+          })).unwrap();
+          toast.success('Active rental updated successfully!');
+          break;
             
           case 'reservations':
             await dispatch(updateReservation({ 
@@ -367,7 +385,7 @@ const Rentals = () => {
               rental_date: formData.rental_date,
               due_date: formData.due_date,
               return_date: formData.return_date,
-              days_late: daysLate // Always use calculated value
+              days_late: daysLate
             };
   
             await dispatch(createRental(rentalData)).unwrap();
@@ -379,6 +397,12 @@ const Rentals = () => {
               user_id: formData.user_id,
               book_id: formData.book_id,
               membership_card_number: formData.membership_card_number,
+              payment_method: formData.payment_method,
+              ...(formData.payment_method === 'credit_card' && {
+                card_holder_name: formData.card_holder_name,
+                card_last_four: formData.card_last_four,
+                card_expiration: formData.card_expiration
+              }),
               rental_days: formData.rental_days,
               rental_date: formData.rental_date,
               due_date: formData.due_date || new Date(
@@ -500,35 +524,35 @@ const Rentals = () => {
             />
           </div>
           <div className="form-group">
-  <label>Return Date *</label>
-  <input 
-    type="date" 
-    name="return_date" 
-    value={formData.return_date || ''} 
-    onChange={handleInputChange}
-    required
-    min={formData.rental_date}
-  />
-  {formData.return_date && formData.due_date && (
-    <div className={new Date(formData.return_date) > new Date(formData.due_date) ? "warning-text" : "info-text"}>
-      {new Date(formData.return_date) > new Date(formData.due_date) 
-        ? `This return is ${formData.days_late} days late`
-        : 'This return is on time'}
-    </div>
-  )}
-</div>
-<div className="form-group">
-  <label>Days Late *</label>
-  <input 
-    type="number" 
-    name="days_late" 
-    value={formData.days_late || 0} 
-    onChange={handleInputChange}
-    min="0"
-    required
-    readOnly // Make this field read-only since it's auto-calculated
-  />
-</div>
+            <label>Return Date *</label>
+            <input 
+              type="date" 
+              name="return_date" 
+              value={formData.return_date || ''} 
+              onChange={handleInputChange}
+              required
+              min={formData.rental_date}
+            />
+            {formData.return_date && formData.due_date && (
+              <div className={new Date(formData.return_date) > new Date(formData.due_date) ? "warning-text" : "info-text"}>
+                {new Date(formData.return_date) > new Date(formData.due_date) 
+                  ? `This return is ${formData.days_late} days late`
+                  : 'This return is on time'}
+              </div>
+            )}
+          </div>
+          <div className="form-group">
+            <label>Days Late *</label>
+            <input 
+              type="number" 
+              name="days_late" 
+              value={formData.days_late || 0} 
+              onChange={handleInputChange}
+              min="0"
+              required
+              readOnly
+            />
+          </div>
         </>
       );
       case 'overdues':
@@ -657,6 +681,54 @@ const Rentals = () => {
                 isDisabled={!!editItem}
               />
             </div>
+            <div className="form-group">
+              <label>Payment Method *</label>
+              <select
+                name="payment_method"
+                value={formData.payment_method || 'cash'}
+                onChange={handleInputChange}
+                required
+              >
+                <option value="cash">Cash</option>
+                <option value="credit_card">Credit Card</option>
+              </select>
+            </div>
+            {formData.payment_method === 'credit_card' && (
+              <>
+                <div className="form-group">
+                  <label>Card Holder Name *</label>
+                  <input
+                    type="text"
+                    name="card_holder_name"
+                    value={formData.card_holder_name || ''}
+                    onChange={handleInputChange}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Last 4 Digits *</label>
+                  <input
+                    type="text"
+                    name="card_last_four"
+                    value={formData.card_last_four || ''}
+                    onChange={handleInputChange}
+                    maxLength="4"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Expiration (MM/YY) *</label>
+                  <input
+                    type="text"
+                    name="card_expiration"
+                    value={formData.card_expiration || ''}
+                    onChange={handleInputChange}
+                    placeholder="MM/YY"
+                    required
+                  />
+                </div>
+              </>
+            )}
             <div className="form-group">
               <label>Status *</label>
               <select
@@ -1063,6 +1135,7 @@ const Rentals = () => {
                   <th>Member</th>
                   <th>Card Number</th>
                   <th>Book</th>
+                  <th>Payment Method</th>
                   <th>Rental Date</th>
                   <th>Due Date</th>
                   <th>Status</th>
@@ -1076,6 +1149,7 @@ const Rentals = () => {
                     <td>{active.user?.name || 'N/A'}</td>
                     <td>{active.membership_card_number || 'N/A'}</td>
                     <td>{active.book?.title || 'N/A'}</td>
+                    <td>{active.payment_method || 'N/A'}</td>
                     <td>{new Date(active.rental_date).toLocaleDateString()}</td>
                     <td>{new Date(active.due_date).toLocaleDateString()}</td>
                     <td className={getStatusClass(active.status)}>
